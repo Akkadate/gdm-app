@@ -14,7 +14,7 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const app = express();
 
 // Set environment variables
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5004;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 // Middleware
