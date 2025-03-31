@@ -1,0 +1,36 @@
+#frontend ----------------------------------------------
+# /etc/nginx/sites-available/gdm
+server {
+    listen 80;
+    server_name gdm.devapp.cc;
+
+    location / {
+        proxy_pass http://localhost:3004;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+#backend -------------------------------------
+# /etc/nginx/sites-available/api.gdm.devapp.cc
+server {
+    listen 80;
+    server_name api.gdm.devapp.cc;
+
+    location / {
+        proxy_pass http://localhost:5004;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+
+ln -s /etc/nginx/sites-available/gdm /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/api.gdm /etc/nginx/sites-enabled/
+
+
+sudo certbot --nginx -d gdm.devapp.cc -d api.gdm.devapp.cc
