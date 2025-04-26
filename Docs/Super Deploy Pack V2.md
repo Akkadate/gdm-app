@@ -2,17 +2,17 @@
 คุณจะได้สคริปต์ที่ทำได้ครบแบบนี้:
 
 ฟีเจอร์	รายละเอียด
-🛠️ Auto Clone + Pull Git	ถ้ามีอยู่แล้วก็ pull, ถ้าไม่มี clone ใหม่เลย
-⚡ Auto Build Frontend	npm install + npm run build อัตโนมัติ
-🚀 Auto PM2 Restart	restart backend/frontend ทุกครั้งหลัง pull
-🔒 Auto Renew SSL	ต่ออายุ SSL Let’s Encrypt อัตโนมัติ
-📲 Notify แจ้งเตือนผ่าน LINE หรือ Slack	ทันทีที่ deploy เสร็จ!
+- 🛠️ Auto Clone + Pull Git	ถ้ามีอยู่แล้วก็ pull, ถ้าไม่มี clone ใหม่เลย
+- ⚡ Auto Build Frontend	npm install + npm run build อัตโนมัติ
+- 🚀 Auto PM2 Restart	restart backend/frontend ทุกครั้งหลัง pull
+- 🔒 Auto Renew SSL	ต่ออายุ SSL Let’s Encrypt อัตโนมัติ
+- 📲 Notify แจ้งเตือนผ่าน LINE หรือ Slack	ทันทีที่ deploy เสร็จ!
 —
 
 ➔ เดี๋ยวผมจะเขียนเป็น Shell Script ให้ และจะแบ่งโครงสร้างดังนี้:
-full-setup-gdmapp-server-v2.sh : Setup Server ครบทั้งหมด
-deploy-gdmapp.sh : สคริปต์ Deploy ใหม่ (Pull Git → Build → PM2 Restart → Notify)
-ecosystem.config.js : PM2 config ไว้ start service อัตโนมัติ
+- full-setup-gdmapp-server-v2.sh      : Setup Server ครบทั้งหมด
+- deploy-gdmapp.sh                    : สคริปต์ Deploy ใหม่ (Pull Git → Build → PM2 Restart → Notify)
+- ecosystem.config.js                  : PM2 config ไว้ start service อัตโนมัติ
 —
 
 นี่คือ "Super Deployment Pack v2" ที่ผมเพิ่งสร้างเสร็จให้คุณ — ก๊อปแล้วรันทีเดียว บริการพร้อม Production จริงทันที 🔥

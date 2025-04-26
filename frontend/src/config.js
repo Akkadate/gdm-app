@@ -2,14 +2,14 @@
 
 // Development environment
 const devConfig = {
-  API_URL: "http://localhost:4700/api", // Assume API is served from same domain in development_TOKEN_KEY: "gdm_auth_token",
+  API_URL: "https://gdmapp.devapp.cc/api", // Assume API is served from same domain in development_TOKEN_KEY: "gdm_auth_token",
   REFRESH_TOKEN_KEY: "gdm_refresh_token",
   SITE_NAME: "GDM App - พัฒนา",
 };
 
 // Production environment
 const prodConfig = {
-  API_URL: "/api", // Assume API is served from same domain in production
+  API_URL: "https://gdmapp.devapp.cc/api", // Assume API is served from same domain in production
   AUTH_TOKEN_KEY: "gdm_auth_token",
   REFRESH_TOKEN_KEY: "gdm_refresh_token",
   SITE_NAME: "GDM App",
@@ -17,7 +17,7 @@ const prodConfig = {
 
 // Testing environment
 const testConfig = {
-  API_URL: "http://localhost:4700/api",
+  API_URL: "https://gdmapp.devapp.cc/api/api",
   AUTH_TOKEN_KEY: "gdm_auth_token_test",
   REFRESH_TOKEN_KEY: "gdm_refresh_token_test",
   SITE_NAME: "GDM App - ทดสอบ",
