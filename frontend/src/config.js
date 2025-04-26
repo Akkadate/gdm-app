@@ -2,8 +2,7 @@
 
 // Development environment
 const devConfig = {
-  API_URL: "http://localhost:5000/api",
-  AUTH_TOKEN_KEY: "gdm_auth_token",
+  API_URL: "http://localhost:4700/api", // Assume API is served from same domain in development_TOKEN_KEY: "gdm_auth_token",
   REFRESH_TOKEN_KEY: "gdm_refresh_token",
   SITE_NAME: "GDM App - พัฒนา",
 };
@@ -18,7 +17,7 @@ const prodConfig = {
 
 // Testing environment
 const testConfig = {
-  API_URL: "http://localhost:5000/api",
+  API_URL: "http://localhost:4700/api",
   AUTH_TOKEN_KEY: "gdm_auth_token_test",
   REFRESH_TOKEN_KEY: "gdm_refresh_token_test",
   SITE_NAME: "GDM App - ทดสอบ",
