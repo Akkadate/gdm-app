@@ -26,7 +26,7 @@ import MealLog from "./pages/patient/MealLog";
 import WeightLog from "./pages/patient/WeightLog";
 import ActivityLog from "./pages/patient/ActivityLog";
 import Appointments from "./pages/patient/Appointments";
-// import PatientProfile from "./pages/patient/_Profile";
+import PatientProfile from "./pages/patient/Profile";
 
 // Nurse Pages
 import NurseDashboard from "./pages/nurse/Dashboard";
@@ -140,6 +140,7 @@ function App() {
             <Route path="weight" element={<WeightLog />} />
             <Route path="activities" element={<ActivityLog />} />
             <Route path="appointments" element={<Appointments />} />
+            <Route path="profile" element={<PatientProfile />} />
             <Route
               path=""
               element={<Navigate to="/patient/dashboard" replace />}
@@ -157,6 +158,9 @@ function App() {
           >
             <Route path="dashboard" element={<NurseDashboard />} />
             <Route path="patients" element={<PatientList />} />
+            <Route path="patients/:id" element={<PatientDetail />} />
+            <Route path="patients/:id/glucose" element={<PatientGlucose />} />
+            <Route path="patients/:id/treatments" element={<TreatmentPlan />} />
             <Route path="reports" element={<Reports />} />
             <Route
               path=""
