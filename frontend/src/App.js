@@ -31,9 +31,9 @@ import PatientProfile from "./pages/patient/Profile";
 // Nurse Pages
 import NurseDashboard from "./pages/nurse/Dashboard";
 import PatientList from "./pages/nurse/PatientList";
-// import PatientDetail from "./pages/nurse/PatientDetail";
-// import PatientGlucose from "./pages/nurse/PatientGlucose";
-// import TreatmentPlan from "./pages/nurse/TreatmentPlan";
+import PatientDetail from "./pages/nurse/PatientDetail";
+import PatientGlucose from "./pages/nurse/PatientGlucose";
+import TreatmentPlan from "./pages/nurse/TreatmentPlan";
 import Reports from "./pages/nurse/Reports";
 
 // Protected Route Component
