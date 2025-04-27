@@ -42,9 +42,11 @@ const Profile = () => {
 
   // ดึงข้อมูลผู้ใช้และข้อมูลผู้ป่วย
   const fetchUserData = async () => {
+    console.log(process.env.REACT_APP_API_URL);
     try {
       setLoading(true);
       // ดึงข้อมูลผู้ใช้ปัจจุบัน
+      console.log(process.env.REACT_APP_API_URL);
       const userResponse = await axios.get(
         `${process.env.REACT_APP_API_URL}/auth/me`
       );
