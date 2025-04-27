@@ -75,17 +75,20 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setError(null);
+      console.log("Sending login data:", credentials);
       // ส่งข้อมูลเข้าสู่ระบบตรงๆ ไม่ต้องแปลง
+      const res = await axios.post(`${API_URL}/auth/login`, credentials);
+
       // ทดลองส่งทั้งสองฟิลด์
-      const loginData = {
-        email: credentials.email,
-        hospital_id: credentials.email, // ส่งค่าเดียวกันในชื่อฟิลด์ที่ต่างกัน
-        password: credentials.password,
-      };
-      console.log("Sending login data:", loginData);
-      // const res = await axios.post(`${API_URL}/auth/login`, credentials);
+      //const loginData = {
+      //  email: credentials.email,
+      //  hospital_id: credentials.email, // ส่งค่าเดียวกันในชื่อฟิลด์ที่ต่างกัน
+      //  password: credentials.password,
+      // };
+      // const res = await axios.post(`${API_URL}/auth/login`, loginData);
+
       //-----------------------------------------------------
-      const res = await axios.post(`${API_URL}/auth/login`, loginData);
+
       const { token, user } = res.data;
 
       // เก็บ token ใน localStorage

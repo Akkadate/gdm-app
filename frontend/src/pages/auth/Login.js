@@ -7,7 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 
 // Validation Schema
 const LoginSchema = Yup.object().shape({
-  email: Yup.string().required("กรุณาระบุอีเมลหรือเลขประจำตัวผู้ป่วย"),
+  hospital_id: Yup.string().required("กรุณาระบุเลขประจำตัวผู้ป่วย"),
   password: Yup.string()
     .required("กรุณาระบุรหัสผ่าน")
     .min(6, "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"),
@@ -50,7 +50,7 @@ const Login = () => {
         </div>
 
         <Formik
-          initialValues={{ email: "", password: "" }}
+          initialValues={{ hospital_id: "", password: "" }}
           validationSchema={LoginSchema}
           onSubmit={handleSubmit}
         >
@@ -62,16 +62,16 @@ const Login = () => {
                     เลขประจำตัวผู้ป่วย
                   </label>
                   <Field
-                    id="email" // เปลี่ยนนี่ด้วย
-                    name="email" // เปลี่ยนตรงนี้
+                    id="hospital_id"
+                    name="hospital_id"
                     type="text"
                     autoComplete="username"
                     required
-                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                    placeholder="เลขประจำตัวผู้ป่วยหรืออีเมล"
+                    className="..."
+                    placeholder="เลขประจำตัวผู้ป่วย"
                   />
                   <ErrorMessage
-                    name="email" // เปลี่ยนตรงนี้
+                    name="hospital_id"
                     component="div"
                     className="text-red-500 text-xs"
                   />
