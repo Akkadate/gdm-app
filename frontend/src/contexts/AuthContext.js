@@ -75,12 +75,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setError(null);
-      // แปลง hospital_id เป็น email
-      const loginData = {
-        email: credentials.hospital_id,
-        password: credentials.password,
-      };
-      const res = await axios.post(`${API_URL}/auth/login`, loginData);
+      // ส่งข้อมูลเข้าสู่ระบบตรงๆ ไม่ต้องแปลง
+      const res = await axios.post(`${API_URL}/auth/login`, credentials);
       const { token, user } = res.data;
 
       // เก็บ token ใน localStorage
