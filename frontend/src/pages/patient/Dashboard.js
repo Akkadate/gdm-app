@@ -17,8 +17,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { format, subDays } from "date-fns";
 import { th } from "date-fns/locale";
 
-import { API_URL } from "../../config";
-
 // Register ChartJS components
 ChartJS.register(
   CategoryScale,
@@ -34,7 +32,6 @@ ChartJS.register(
 const PatientDashboard = () => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [glucoseData, setGlucoseData] = useState(null);
   const [latestAppointments, setLatestAppointments] = useState([]);
   const [latestWeight, setLatestWeight] = useState(null);
@@ -45,60 +42,41 @@ const PatientDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
-        // ดึง token จาก localStorage
-        const token = localStorage.getItem("token");
-        if (!token) {
-          throw new Error("ไม่พบข้อมูลการเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่");
-        }
-
-        // ตั้งค่า headers สำหรับทุก request
-        const headers = { "x-auth-token": token };
-
-        // ดึงข้อมูลผู้ป่วย
-        const patientResponse = await axios.get(`${API_URL}/patients/me`, {
-          headers,
-        });
+        // ดึงข้อมูลผู้ป่วย --
+        const patientResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL}/patients/me`
+        );
         setPatientInfo(patientResponse.data);
 
         // ดึงข้อมูลค่าน้ำตาล 7 วันย้อนหลัง
         const glucoseResponse = await axios.get(
-          `${API_URL}/glucose/stats?days=7`,
-          { headers }
+          `${process.env.REACT_APP_API_URL}/glucose/stats?days=7`
         );
         setGlucoseData(glucoseResponse.data);
 
         // ดึงข้อมูลการนัดหมายที่กำลังจะมาถึง
         const appointmentsResponse = await axios.get(
-          `${API_URL}/appointments?upcoming=true&limit=3`,
-          { headers }
+          `${process.env.REACT_APP_API_URL}/appointments?upcoming=true&limit=3`
         );
         setLatestAppointments(appointmentsResponse.data);
 
         // ดึงข้อมูลน้ำหนักล่าสุด
-        const weightResponse = await axios.get(`${API_URL}/weights/latest`, {
-          headers,
-        });
+        const weightResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL}/weights/latest`
+        );
         setLatestWeight(weightResponse.data);
 
         // ดึงข้อมูลค่าน้ำตาลวันนี้
         const todayReadingsResponse = await axios.get(
-          `${API_URL}/glucose?date=${format(new Date(), "yyyy-MM-dd")}`,
-          { headers }
+          `${process.env.REACT_APP_API_URL}/glucose?date=${format(
+            new Date(),
+            "yyyy-MM-dd"
+          )}`
         );
         setTodayReadings(todayReadingsResponse.data);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-
-        // ตรวจสอบ error และกำหนดข้อความที่เหมาะสม
-        if (error.response?.status === 403) {
-          setError("ไม่มีสิทธิ์เข้าถึงข้อมูล กรุณาเข้าสู่ระบบใหม่");
-        } else if (error.response?.status === 401) {
-          setError("การยืนยันตัวตนหมดอายุ กรุณาเข้าสู่ระบบใหม่");
-        } else {
-          setError(error.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
-        }
       } finally {
         setLoading(false);
       }
@@ -173,24 +151,10 @@ const PatientDashboard = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col justify-center items-center">
-        <p className="text-xl font-semibold text-red-600 mb-4">{error}</p>
-        <Link
-          to="/login"
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-        >
-          เข้าสู่ระบบใหม่
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">
-        ยินดีต้อนรับ, คุณ{currentUser?.first_name || ""}
+        ยินดีต้อนรับ, คุณ{currentUser?.first_name}
       </h1>
 
       {/* วันที่วันนี้ */}
@@ -205,7 +169,7 @@ const PatientDashboard = () => {
         {/* ค่าน้ำตาลวันนี้ */}
         <div className="bg-white rounded-lg shadow-md p-4">
           <h2 className="text-lg font-semibold mb-3">ค่าน้ำตาลวันนี้</h2>
-          {todayReadings && todayReadings.length > 0 ? (
+          {todayReadings.length > 0 ? (
             <div>
               <div className="grid grid-cols-2 gap-2">
                 {todayReadings.map((reading) => (
@@ -297,7 +261,7 @@ const PatientDashboard = () => {
           <h2 className="text-lg font-semibold mb-3">
             การนัดหมายที่กำลังจะมาถึง
           </h2>
-          {latestAppointments && latestAppointments.length > 0 ? (
+          {latestAppointments.length > 0 ? (
             <div>
               {latestAppointments.map((appointment) => (
                 <div key={appointment.id} className="mb-3 pb-3 border-b">
@@ -340,9 +304,7 @@ const PatientDashboard = () => {
       <div className="bg-white rounded-lg shadow-md p-4 mb-8">
         <h2 className="text-lg font-semibold mb-4">แนวโน้มค่าน้ำตาลในเลือด</h2>
         <div className="h-64">
-          {glucoseData &&
-          glucoseData.dailyAverage &&
-          glucoseData.dailyAverage.length > 0 ? (
+          {glucoseData?.dailyAverage?.length > 0 ? (
             <Line data={glucoseChartData} options={glucoseChartOptions} />
           ) : (
             <div className="flex justify-center items-center h-full">
