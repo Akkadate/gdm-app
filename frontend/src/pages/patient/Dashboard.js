@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
 import {
@@ -31,117 +31,93 @@ ChartJS.register(
 );
 
 const PatientDashboard = () => {
-  const { currentUser, logout } = useAuth();
-  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [glucoseData, setGlucoseData] = useState(null);
   const [latestAppointments, setLatestAppointments] = useState([]);
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayReadings, setTodayReadings] = useState([]);
   const [patientInfo, setPatientInfo] = useState(null);
-  const [error, setError] = useState(null);
+  const [patientId, setPatientId] = useState(null);
 
+  // 1. First step - get patient ID using the current user ID
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const getPatientId = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        if (!currentUser || !currentUser.id) return;
 
-        // 1. ตรวจสอบว่ามี token ใน localStorage หรือไม่
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          console.error("No authentication token found");
-          setError("ไม่พบข้อมูลการยืนยันตัวตน กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
-          return;
-        }
-
-        // 2. ตั้งค่า Authorization header สำหรับทุก request
-        axios.defaults.headers.common["x-auth-token"] = token;
-
-        // 3. ดึงข้อมูลผู้ป่วย
-        console.log("Fetching patient data...");
-        const patientResponse = await axios.get(`${API_URL}/patients/me`);
-        console.log("Patient data:", patientResponse.data);
-        setPatientInfo(patientResponse.data);
-
-        // 4. ดึงข้อมูลอื่นๆ หลังจากได้ข้อมูลผู้ป่วยแล้ว
-        const today = format(new Date(), "yyyy-MM-dd");
-
-        // ดึงข้อมูลค่าน้ำตาล 7 วันย้อนหลัง
-        const glucoseResponse = await axios.get(
-          `${API_URL}/glucose/stats?days=7`
+        // Query to get patient ID based on user ID
+        const response = await axios.get(
+          `${API_URL}/users/${currentUser.id}/patient`
         );
-        setGlucoseData(glucoseResponse.data);
 
-        // ดึงข้อมูลการนัดหมายที่กำลังจะมาถึง
-        const appointmentsResponse = await axios.get(
-          `${API_URL}/appointments?upcoming=true&limit=3`
-        );
-        setLatestAppointments(appointmentsResponse.data);
+        // If we can't find this API endpoint, here's a fallback plan:
+        // Just try to load any endpoint that might return patient ID
+        // เราสามารถใช้ endpoint อื่นที่อาจจะส่งคืนข้อมูลผู้ป่วยได้
 
-        // ดึงข้อมูลน้ำหนักล่าสุด
-        const weightResponse = await axios.get(`${API_URL}/weights/latest`);
-        setLatestWeight(weightResponse.data);
-
-        // ดึงข้อมูลค่าน้ำตาลวันนี้
-        const todayReadingsResponse = await axios.get(
-          `${API_URL}/glucose?date=${today}`
-        );
-        setTodayReadings(todayReadingsResponse.data);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-
-        if (error.response) {
-          console.error("Response status:", error.response.status);
-          console.error("Response data:", error.response.data);
-
-          if (error.response.status === 403) {
-            setError(
-              "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง"
-            );
-            // อาจเป็นปัญหาเกี่ยวกับสิทธิ์ ให้ logout เพื่อให้ผู้ใช้เข้าสู่ระบบใหม่
-            setTimeout(() => {
-              logout();
-              navigate("/login");
-            }, 3000);
-          } else if (error.response.status === 401) {
-            setError("การยืนยันตัวตนหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
-            // Token หมดอายุ ให้ logout
-            setTimeout(() => {
-              logout();
-              navigate("/login");
-            }, 3000);
-          } else {
-            setError(
-              `เกิดข้อผิดพลาด: ${
-                error.response.data.message || "ไม่สามารถโหลดข้อมูลได้"
-              }`
-            );
-          }
-        } else if (error.request) {
-          // ไม่ได้รับการตอบกลับจาก server
-          setError(
-            "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อของคุณ"
-          );
+        if (response.data && response.data.id) {
+          setPatientId(response.data.id);
+          setPatientInfo(response.data);
         } else {
-          setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+          console.error("Could not find patient ID");
         }
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.error("Error getting patient ID:", error);
+        // Fallback: Just try to load data using other APIs
+        fetchDashboardData();
       }
     };
 
-    fetchDashboardData();
-  }, [logout, navigate]);
+    getPatientId();
+  }, [currentUser]);
 
-  // คำนวณค่า BMI
-  const calculateBMI = () => {
-    if (!patientInfo || !latestWeight || !patientInfo.height) return null;
+  // 2. Once we have patient ID, load all other data
+  useEffect(() => {
+    if (patientId) {
+      fetchDashboardData();
+    }
+  }, [patientId]);
 
-    const heightInMeters = patientInfo.height / 100;
-    const bmi = latestWeight.weight / (heightInMeters * heightInMeters);
-    return bmi.toFixed(1);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Make concurrent API calls for better performance
+      const today = format(new Date(), "yyyy-MM-dd");
+
+      const [
+        glucoseResponse,
+        appointmentsResponse,
+        weightResponse,
+        todayReadingsResponse,
+      ] = await Promise.allSettled([
+        axios.get(`${API_URL}/glucose/stats?days=7`),
+        axios.get(`${API_URL}/appointments?upcoming=true&limit=3`),
+        axios.get(`${API_URL}/weights/latest`),
+        axios.get(`${API_URL}/glucose?date=${today}`),
+      ]);
+
+      // Handle each response, even if some fail
+      if (glucoseResponse.status === "fulfilled") {
+        setGlucoseData(glucoseResponse.value.data);
+      }
+
+      if (appointmentsResponse.status === "fulfilled") {
+        setLatestAppointments(appointmentsResponse.value.data);
+      }
+
+      if (weightResponse.status === "fulfilled") {
+        setLatestWeight(weightResponse.value.data);
+      }
+
+      if (todayReadingsResponse.status === "fulfilled") {
+        setTodayReadings(todayReadingsResponse.value.data);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // แปลงประเภทการตรวจเป็นภาษาไทย
@@ -156,6 +132,16 @@ const PatientDashboard = () => {
       bedtime: "ก่อนนอน",
     };
     return typeMap[type] || type;
+  };
+
+  // คำนวณค่า BMI - using currentUser data if patientInfo is not available
+  const calculateBMI = () => {
+    const patient = patientInfo || currentUser;
+    if (!patient || !latestWeight || !patient.height) return null;
+
+    const heightInMeters = patient.height / 100;
+    const bmi = latestWeight.weight / (heightInMeters * heightInMeters);
+    return bmi.toFixed(1);
   };
 
   // เตรียมข้อมูลสำหรับแสดงกราฟค่าน้ำตาลย้อนหลัง
@@ -202,34 +188,10 @@ const PatientDashboard = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex justify-center items-center">
-        <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md">
-          <p className="text-xl font-semibold text-red-500 mb-4">{error}</p>
-          <div className="mt-4 flex justify-center space-x-4">
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-            >
-              ลองใหม่
-            </button>
-            <Link
-              to="/login"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              เข้าสู่ระบบใหม่
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">
-        ยินดีต้อนรับ, คุณ{currentUser?.first_name || "ผู้ใช้งาน"}
+        ยินดีต้อนรับ, คุณ{currentUser?.first_name}
       </h1>
 
       {/* วันที่วันนี้ */}
