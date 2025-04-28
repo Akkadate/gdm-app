@@ -17,7 +17,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { format, subDays } from "date-fns";
 import { th } from "date-fns/locale";
 
-// Register ChartJS components
+// Register ChartJS components--xx
 ChartJS.register(
   CategoryScale,
   LinearScale,
