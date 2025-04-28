@@ -555,4 +555,126 @@ router.post(
   }
 );
 
+// @route   POST api/patients/update-self
+// @desc    ผู้ป่วยอัปเดตข้อมูลของตนเอง
+// @access  Private
+router.post(
+  "/update-self",
+  [
+    auth,
+    check("expected_delivery_date", "รูปแบบวันกำหนดคลอดไม่ถูกต้อง")
+      .optional()
+      .isDate(),
+    check("pre_pregnancy_weight", "น้ำหนักก่อนตั้งครรภ์ต้องเป็นตัวเลข")
+      .optional()
+      .isNumeric(),
+    check("height", "ส่วนสูงต้องเป็นตัวเลข").optional().isNumeric(),
+  ],
+  async (req, res) => {
+    // ตรวจสอบความถูกต้องของข้อมูล
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const {
+      expected_delivery_date,
+      gestational_age_at_diagnosis,
+      pre_pregnancy_weight,
+      height,
+      blood_type,
+      previous_gdm,
+      family_diabetes_history,
+    } = req.body;
+
+    try {
+      // ตรวจสอบบทบาทของผู้ใช้
+      const userResult = await req.db.query(
+        "SELECT r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
+        [req.user.id]
+      );
+
+      if (
+        userResult.rows.length === 0 ||
+        userResult.rows[0].role !== "patient"
+      ) {
+        return res
+          .status(403)
+          .json({ message: "เฉพาะผู้ป่วยเท่านั้นที่สามารถใช้ API นี้ได้" });
+      }
+
+      // ค้นหา patient_id ของผู้ใช้
+      const patientResult = await req.db.query(
+        "SELECT id FROM patients WHERE user_id = $1",
+        [req.user.id]
+      );
+
+      if (patientResult.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลผู้ป่วย" });
+      }
+
+      const patientId = patientResult.rows[0].id;
+
+      // สร้างคำสั่ง SQL สำหรับอัปเดต
+      let updateFields = [];
+      let updateValues = [];
+      let paramIndex = 1;
+
+      if (expected_delivery_date) {
+        updateFields.push(`expected_delivery_date = $${paramIndex++}`);
+        updateValues.push(expected_delivery_date);
+      }
+
+      if (gestational_age_at_diagnosis !== undefined) {
+        updateFields.push(`gestational_age_at_diagnosis = $${paramIndex++}`);
+        updateValues.push(gestational_age_at_diagnosis);
+      }
+
+      if (pre_pregnancy_weight) {
+        updateFields.push(`pre_pregnancy_weight = $${paramIndex++}`);
+        updateValues.push(pre_pregnancy_weight);
+      }
+
+      if (height) {
+        updateFields.push(`height = $${paramIndex++}`);
+        updateValues.push(height);
+      }
+
+      if (blood_type) {
+        updateFields.push(`blood_type = $${paramIndex++}`);
+        updateValues.push(blood_type);
+      }
+
+      if (previous_gdm !== undefined) {
+        updateFields.push(`previous_gdm = $${paramIndex++}`);
+        updateValues.push(previous_gdm);
+      }
+
+      if (family_diabetes_history !== undefined) {
+        updateFields.push(`family_diabetes_history = $${paramIndex++}`);
+        updateValues.push(family_diabetes_history);
+      }
+
+      updateFields.push(`updated_at = $${paramIndex++}`);
+      updateValues.push(new Date());
+
+      // เพิ่ม ID ของผู้ป่วยที่จะอัปเดต
+      updateValues.push(patientId);
+
+      // อัปเดตข้อมูล
+      const result = await req.db.query(
+        `UPDATE patients SET ${updateFields.join(
+          ", "
+        )} WHERE id = $${paramIndex} RETURNING *`,
+        updateValues
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+    }
+  }
+);
+
 module.exports = router;

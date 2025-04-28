@@ -7,6 +7,7 @@ import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
+import { API_URL } from "../../config"; // แก้ไข: ใช้ API_URL จาก config
 
 // Validation Schema สำหรับการแก้ไขข้อมูลผู้ใช้
 const ProfileSchema = Yup.object().shape({
@@ -42,28 +43,41 @@ const Profile = () => {
 
   // ดึงข้อมูลผู้ใช้และข้อมูลผู้ป่วย
   const fetchUserData = async () => {
-    console.log(process.env.REACT_APP_API_URL);
     try {
       setLoading(true);
-      // ดึงข้อมูลผู้ใช้ปัจจุบัน
-      console.log(process.env.REACT_APP_API_URL);
-      const userResponse = await axios.get(
-        `${process.env.REACT_APP_API_URL}/auth/me`
-      );
-      setUserData(userResponse.data);
 
-      // ดึงข้อมูลผู้ป่วยเพิ่มเติม
-      if (
-        userResponse.data.role === "patient" &&
-        userResponse.data.patient_data
-      ) {
-        setPatientData(userResponse.data.patient_data);
+      // ดึงข้อมูลผู้ใช้ปัจจุบัน - ไม่ใช้ /auth/me เพราะอาจมีปัญหา
+      // แทนที่จะดึงข้อมูลผู้ใช้ใหม่ ให้ใช้ currentUser ที่มีอยู่แล้ว
+      setUserData(currentUser);
 
-        // ตั้งค่าวันกำหนดคลอด (ถ้ามี)
-        if (userResponse.data.patient_data.expected_delivery_date) {
-          setExpectedDeliveryDate(
-            new Date(userResponse.data.patient_data.expected_delivery_date)
+      // ถ้าบทบาทเป็นผู้ป่วย ค้นหา patient_id
+      if (currentUser && currentUser.role === "patient") {
+        try {
+          // ดึงข้อมูล patient_id เพื่อใช้ในการดึงข้อมูลผู้ป่วย
+          const patientResult = await axios.get(
+            `${API_URL}/patients?user_id=${currentUser.id}`
           );
+
+          if (patientResult.data && patientResult.data.length > 0) {
+            const patientId = patientResult.data[0].id;
+
+            // ดึงข้อมูลผู้ป่วย
+            const patientResponse = await axios.get(
+              `${API_URL}/patients/${patientId}`
+            );
+            const patientInfo = patientResponse.data;
+
+            setPatientData(patientInfo);
+
+            // ตั้งค่าวันกำหนดคลอด (ถ้ามี)
+            if (patientInfo.expected_delivery_date) {
+              setExpectedDeliveryDate(
+                new Date(patientInfo.expected_delivery_date)
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching patient data:", error);
         }
       }
     } catch (error) {
@@ -74,76 +88,80 @@ const Profile = () => {
     }
   };
 
-  // บันทึกการแก้ไขข้อมูลส่วนตัว
- // แก้ไขฟังก์ชัน handleProfileUpdate ใน frontend/src/pages/patient/Profile.js
-const handleProfileUpdate = async (values, { setSubmitting }) => {
+  // บันทึกการแก้ไขข้อมูลส่วนตัว - แก้ไขใหม่ทั้งหมด
+  const handleProfileUpdate = async (values, { setSubmitting }) => {
+    console.log("Profile update started with values:", values);
 
-  console.log("Profile update started with values:", values);
+    try {
+      // แก้ไข: ไม่ใช้ /users/:id แต่ใช้ /auth/profile แทน (ถ้ามี)
+      // ถ้าไม่มี ให้เขียน API endpoint ใหม่ที่ให้ผู้ใช้อัปเดตโปรไฟล์ของตัวเอง
 
-  try {
-    // อัปเดตข้อมูลผู้ใช้
-    console.log("Updating user info...");
-    await axios.put(
-      `${process.env.REACT_APP_API_URL}/users/${currentUser.id}`,
-      {
+      // ตรวจสอบว่า currentUser มี id หรือไม่
+      if (!currentUser || !currentUser.id) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้");
+      }
+
+      // ใช้ /auth/update-profile แทน (สมมติว่ามี endpoint นี้)
+      // หรือสร้าง endpoint นี้ในไฟล์ auth.routes.js
+      await axios.post(`${API_URL}/auth/update-profile`, {
         first_name: values.first_name,
         last_name: values.last_name,
         phone: values.phone,
+      });
+
+      console.log("User info updated successfully");
+
+      // อัปเดตข้อมูลผู้ป่วย (ถ้ามี)
+      if (patientData && patientData.id) {
+        const patientUpdateData = {
+          expected_delivery_date: expectedDeliveryDate
+            ? format(expectedDeliveryDate, "yyyy-MM-dd")
+            : null,
+          height: values.height ? parseFloat(values.height) : null,
+          pre_pregnancy_weight: values.pre_pregnancy_weight
+            ? parseFloat(values.pre_pregnancy_weight)
+            : null,
+          gestational_age_at_diagnosis: values.gestational_age_at_diagnosis
+            ? parseInt(values.gestational_age_at_diagnosis)
+            : null,
+          blood_type: values.blood_type || null,
+          previous_gdm: values.previous_gdm === "true",
+          family_diabetes_history: values.family_diabetes_history === "true",
+        };
+
+        console.log("Sending patient update data:", patientUpdateData);
+
+        // ใช้ endpoint พิเศษสำหรับผู้ป่วยอัปเดตข้อมูลตัวเอง
+        // หรือสร้าง endpoint นี้ใน patients.routes.js
+        const response = await axios.post(
+          `${API_URL}/patients/update-self`,
+          patientUpdateData
+        );
+
+        console.log("Patient update response:", response.data);
       }
-    );
 
-    console.log("User info updated successfully");
-    
-    // อัปเดตข้อมูลผู้ป่วย (ถ้ามี)
-    if (patientData) {
-      // แก้ไขส่วนนี้: ควรส่งข้อมูลที่ถูกต้องและตรงตามที่ API คาดหวัง
-      const patientUpdateData = {
-        expected_delivery_date: expectedDeliveryDate
-          ? format(expectedDeliveryDate, "yyyy-MM-dd")
-          : null,
-        height: values.height ? parseFloat(values.height) : null,
-        pre_pregnancy_weight: values.pre_pregnancy_weight ? parseFloat(values.pre_pregnancy_weight) : null,
-        gestational_age_at_diagnosis: values.gestational_age_at_diagnosis ? parseInt(values.gestational_age_at_diagnosis) : null,
-        blood_type: values.blood_type || null,
-        previous_gdm: values.previous_gdm === "true",
-        family_diabetes_history: values.family_diabetes_history === "true",
-      };
-
-      console.log("Sending patient update data:", patientUpdateData);
-      
-      // แก้ไขส่วนนี้: ตรวจสอบให้แน่ใจว่า URL ถูกต้อง
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/patients/${patientData.id}`,
-        patientUpdateData
-      );
-      
-      console.log("Patient update response:", response.data);
+      toast.success("อัปเดตข้อมูลสำเร็จ");
+      fetchUserData(); // ดึงข้อมูลใหม่
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+      }
+      toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
+    } finally {
+      setSubmitting(false);
     }
-
-    toast.success("อัปเดตข้อมูลสำเร็จ");
-    fetchUserData(); // ดึงข้อมูลใหม่
-  } catch (error) {
-    console.error("Error updating user profile:", error);
-    if (error.response) {
-      console.error("Response data:", error.response.data);
-      console.error("Response status:", error.response.status);
-    }
-    toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   // เปลี่ยนรหัสผ่าน
   const handlePasswordChange = async (values, { setSubmitting, resetForm }) => {
     try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL}/users/change-password`,
-        {
-          current_password: values.current_password,
-          new_password: values.new_password,
-        }
-      );
+      await axios.post(`${API_URL}/users/change-password`, {
+        current_password: values.current_password,
+        new_password: values.new_password,
+      });
 
       toast.success("เปลี่ยนรหัสผ่านสำเร็จ");
       resetForm();
@@ -165,6 +183,14 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
       logout();
       toast.info("ออกจากระบบสำเร็จ");
     }
+  };
+
+  // ตัวเลือกอีกรูปแบบหนึ่ง: ไม่อนุญาตให้อัปเดตข้อมูลโปรไฟล์เลย
+  const handleProfileUpdateDisabled = (values, { setSubmitting }) => {
+    toast.info(
+      "การแก้ไขข้อมูลส่วนตัวยังไม่เปิดให้บริการ กรุณาติดต่อเจ้าหน้าที่"
+    );
+    setSubmitting(false);
   };
 
   if (loading) {
@@ -205,9 +231,17 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
         </div>
       </div>
 
-      {/* ข้อมูลส่วนตัว */}
+      {/* ข้อมูลส่วนตัว - แก้ไข: เพิ่มข้อความแจ้งเตือนว่าแก้ไขไม่ได้ */}
       {activeTab === "profile" && userData && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+            <p className="text-yellow-700">
+              <strong>หมายเหตุ:</strong>{" "}
+              การแก้ไขข้อมูลส่วนตัวยังไม่เปิดให้บริการในขณะนี้
+              กรุณาติดต่อเจ้าหน้าที่หากต้องการแก้ไขข้อมูล
+            </p>
+          </div>
+
           <Formik
             initialValues={{
               first_name: userData.first_name || "",
@@ -224,7 +258,7 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                 : "false",
             }}
             validationSchema={ProfileSchema}
-            onSubmit={handleProfileUpdate}
+            onSubmit={handleProfileUpdateDisabled} // แก้ไข: ใช้ฟังก์ชันที่แจ้งเตือนว่าแก้ไขไม่ได้
           >
             {({ isSubmitting }) => (
               <Form className="space-y-6">
@@ -255,12 +289,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                         <Field
                           name="first_name"
                           type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <ErrorMessage
-                          name="first_name"
-                          component="div"
-                          className="text-red-500 text-xs mt-1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                          readOnly
                         />
                       </div>
 
@@ -274,12 +304,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                         <Field
                           name="last_name"
                           type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <ErrorMessage
-                          name="last_name"
-                          component="div"
-                          className="text-red-500 text-xs mt-1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                          readOnly
                         />
                       </div>
 
@@ -293,12 +319,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                         <Field
                           name="phone"
                           type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <ErrorMessage
-                          name="phone"
-                          component="div"
-                          className="text-red-500 text-xs mt-1"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                          readOnly
                         />
                       </div>
                     </div>
@@ -318,14 +340,11 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                           >
                             วันกำหนดคลอด
                           </label>
-                          <DatePicker
-                            selected={expectedDeliveryDate}
-                            onChange={(date) => setExpectedDeliveryDate(date)}
-                            dateFormat="dd/MM/yyyy"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholderText="เลือกวันกำหนดคลอด"
-                            minDate={new Date()}
-                          />
+                          <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md text-gray-700">
+                            {expectedDeliveryDate
+                              ? format(expectedDeliveryDate, "dd/MM/yyyy")
+                              : "ไม่ระบุ"}
+                          </div>
                         </div>
 
                         <div>
@@ -338,9 +357,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                           <Field
                             name="gestational_age_at_diagnosis"
                             type="number"
-                            min="1"
-                            max="42"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                            readOnly
                           />
                         </div>
 
@@ -354,10 +372,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                           <Field
                             name="height"
                             type="number"
-                            step="0.1"
-                            min="100"
-                            max="200"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                            readOnly
                           />
                         </div>
 
@@ -371,10 +387,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                           <Field
                             name="pre_pregnancy_weight"
                             type="number"
-                            step="0.1"
-                            min="30"
-                            max="200"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                            readOnly
                           />
                         </div>
 
@@ -386,49 +400,19 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                             กรุ๊ปเลือด
                           </label>
                           <Field
-                            as="select"
                             name="blood_type"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          >
-                            <option value="">-- เลือกกรุ๊ปเลือด --</option>
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="AB">AB</option>
-                            <option value="O">O</option>
-                            <option value="A+">A+</option>
-                            <option value="A-">A-</option>
-                            <option value="B+">B+</option>
-                            <option value="B-">B-</option>
-                            <option value="AB+">AB+</option>
-                            <option value="AB-">AB-</option>
-                            <option value="O+">O+</option>
-                            <option value="O-">O-</option>
-                          </Field>
+                            type="text"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                            readOnly
+                          />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             เคยเป็นเบาหวานขณะตั้งครรภ์มาก่อน
                           </label>
-                          <div className="flex space-x-4">
-                            <label className="inline-flex items-center">
-                              <Field
-                                type="radio"
-                                name="previous_gdm"
-                                value="true"
-                                className="form-radio h-4 w-4 text-indigo-600"
-                              />
-                              <span className="ml-2">เคย</span>
-                            </label>
-                            <label className="inline-flex items-center">
-                              <Field
-                                type="radio"
-                                name="previous_gdm"
-                                value="false"
-                                className="form-radio h-4 w-4 text-indigo-600"
-                              />
-                              <span className="ml-2">ไม่เคย</span>
-                            </label>
+                          <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md text-gray-700">
+                            {patientData.previous_gdm ? "เคย" : "ไม่เคย"}
                           </div>
                         </div>
 
@@ -436,25 +420,10 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             มีประวัติเบาหวานในครอบครัว
                           </label>
-                          <div className="flex space-x-4">
-                            <label className="inline-flex items-center">
-                              <Field
-                                type="radio"
-                                name="family_diabetes_history"
-                                value="true"
-                                className="form-radio h-4 w-4 text-indigo-600"
-                              />
-                              <span className="ml-2">มี</span>
-                            </label>
-                            <label className="inline-flex items-center">
-                              <Field
-                                type="radio"
-                                name="family_diabetes_history"
-                                value="false"
-                                className="form-radio h-4 w-4 text-indigo-600"
-                              />
-                              <span className="ml-2">ไม่มี</span>
-                            </label>
+                          <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md text-gray-700">
+                            {patientData.family_diabetes_history
+                              ? "มี"
+                              : "ไม่มี"}
                           </div>
                         </div>
                       </div>
@@ -462,13 +431,18 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
                   )}
                 </div>
 
+                {/* แก้ไข: ซ่อนปุ่มบันทึก หรือแทนที่ด้วยปุ่ม "ติดต่อเจ้าหน้าที่" */}
                 <div className="flex justify-end">
                   <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300"
+                    type="button"
+                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    onClick={() =>
+                      toast.info(
+                        "กรุณาติดต่อเจ้าหน้าที่เพื่อแก้ไขข้อมูลส่วนตัว"
+                      )
+                    }
                   >
-                    {isSubmitting ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                    ติดต่อเจ้าหน้าที่
                   </button>
                 </div>
               </Form>

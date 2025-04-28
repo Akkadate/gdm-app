@@ -1,21 +1,23 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { check, validationResult } = require('express-validator');
-const { auth } = require('../middlewares/auth');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { check, validationResult } = require("express-validator");
+const { auth } = require("../middlewares/auth");
 
 // @route   POST api/auth/register
 // @desc    ลงทะเบียนผู้ใช้ใหม่
 // @access  Public
 router.post(
-  '/register',
+  "/register",
   [
-    check('hospital_id', 'กรุณาระบุเลขประจำตัวผู้ป่วย').not().isEmpty(),
-    check('first_name', 'กรุณาระบุชื่อ').not().isEmpty(),
-    check('last_name', 'กรุณาระบุนามสกุล').not().isEmpty(),
-    check('phone', 'กรุณาระบุเบอร์โทรศัพท์ที่ถูกต้อง').matches(/^[0-9]{10}$/),
-    check('password', 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร').isLength({ min: 6 })
+    check("hospital_id", "กรุณาระบุเลขประจำตัวผู้ป่วย").not().isEmpty(),
+    check("first_name", "กรุณาระบุชื่อ").not().isEmpty(),
+    check("last_name", "กรุณาระบุนามสกุล").not().isEmpty(),
+    check("phone", "กรุณาระบุเบอร์โทรศัพท์ที่ถูกต้อง").matches(/^[0-9]{10}$/),
+    check("password", "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร").isLength({
+      min: 6,
+    }),
   ],
   async (req, res) => {
     // ตรวจสอบความถูกต้องของข้อมูล
@@ -24,14 +26,26 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { hospital_id, first_name, last_name, phone, password, date_of_birth } = req.body;
+    const {
+      hospital_id,
+      first_name,
+      last_name,
+      phone,
+      password,
+      date_of_birth,
+    } = req.body;
 
     try {
       // ตรวจสอบว่าเลขประจำตัวผู้ป่วยซ้ำหรือไม่
-      const userExists = await req.db.query('SELECT * FROM users WHERE hospital_id = $1', [hospital_id]);
-      
+      const userExists = await req.db.query(
+        "SELECT * FROM users WHERE hospital_id = $1",
+        [hospital_id]
+      );
+
       if (userExists.rows.length > 0) {
-        return res.status(400).json({ message: 'เลขประจำตัวผู้ป่วยนี้มีในระบบแล้ว' });
+        return res
+          .status(400)
+          .json({ message: "เลขประจำตัวผู้ป่วยนี้มีในระบบแล้ว" });
       }
 
       // แปลงรหัสผ่านเป็น hash
@@ -40,8 +54,8 @@ router.post(
 
       // เพิ่มผู้ใช้ใหม่
       const result = await req.db.query(
-        'INSERT INTO users (hospital_id, first_name, last_name, phone, password, role_id) VALUES ($1, $2, $3, $4, $5, (SELECT id FROM roles WHERE name = $6)) RETURNING id, hospital_id, first_name, last_name, phone',
-        [hospital_id, first_name, last_name, phone, hashedPassword, 'patient']
+        "INSERT INTO users (hospital_id, first_name, last_name, phone, password, role_id) VALUES ($1, $2, $3, $4, $5, (SELECT id FROM roles WHERE name = $6)) RETURNING id, hospital_id, first_name, last_name, phone",
+        [hospital_id, first_name, last_name, phone, hashedPassword, "patient"]
       );
 
       const newUser = result.rows[0];
@@ -49,7 +63,7 @@ router.post(
       // หากมีข้อมูลวันเกิด ให้บันทึกข้อมูลผู้ป่วยด้วย
       if (date_of_birth) {
         await req.db.query(
-          'INSERT INTO patients (user_id, date_of_birth) VALUES ($1, $2)',
+          "INSERT INTO patients (user_id, date_of_birth) VALUES ($1, $2)",
           [newUser.id, date_of_birth]
         );
       }
@@ -59,8 +73,8 @@ router.post(
         user: {
           id: newUser.id,
           hospital_id: newUser.hospital_id,
-          role: 'patient'
-        }
+          role: "patient",
+        },
       };
 
       jwt.sign(
@@ -74,7 +88,7 @@ router.post(
       );
     } catch (err) {
       console.error(err.message);
-      res.status(500).json({ message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์' });
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
     }
   }
 );
@@ -83,10 +97,10 @@ router.post(
 // @desc    เข้าสู่ระบบและรับ token
 // @access  Public
 router.post(
-  '/login',
+  "/login",
   [
-    check('hospital_id', 'กรุณาระบุเลขประจำตัวผู้ป่วย').exists(),
-    check('password', 'กรุณาระบุรหัสผ่าน').exists()
+    check("hospital_id", "กรุณาระบุเลขประจำตัวผู้ป่วย").exists(),
+    check("password", "กรุณาระบุรหัสผ่าน").exists(),
   ],
   async (req, res) => {
     // ตรวจสอบความถูกต้องของข้อมูล
@@ -100,21 +114,21 @@ router.post(
     try {
       // ค้นหาผู้ใช้จากเลขประจำตัวผู้ป่วย
       const result = await req.db.query(
-        'SELECT u.id, u.hospital_id, u.first_name, u.last_name, u.phone, u.password, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.hospital_id = $1',
+        "SELECT u.id, u.hospital_id, u.first_name, u.last_name, u.phone, u.password, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.hospital_id = $1",
         [hospital_id]
       );
 
       const user = result.rows[0];
 
       if (!user) {
-        return res.status(400).json({ message: 'ไม่พบผู้ใช้งานในระบบ' });
+        return res.status(400).json({ message: "ไม่พบผู้ใช้งานในระบบ" });
       }
 
       // ตรวจสอบรหัสผ่าน
       const isMatch = await bcrypt.compare(password, user.password);
 
       if (!isMatch) {
-        return res.status(400).json({ message: 'รหัสผ่านไม่ถูกต้อง' });
+        return res.status(400).json({ message: "รหัสผ่านไม่ถูกต้อง" });
       }
 
       // สร้าง JWT token
@@ -122,8 +136,8 @@ router.post(
         user: {
           id: user.id,
           hospital_id: user.hospital_id,
-          role: user.role
-        }
+          role: user.role,
+        },
       };
 
       jwt.sign(
@@ -140,14 +154,14 @@ router.post(
               first_name: user.first_name,
               last_name: user.last_name,
               phone: user.phone,
-              role: user.role
-            }
+              role: user.role,
+            },
           });
         }
       );
     } catch (err) {
       console.error(err.message);
-      res.status(500).json({ message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์' });
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
     }
   }
 );
@@ -155,27 +169,27 @@ router.post(
 // @route   GET api/auth/me
 // @desc    รับข้อมูลผู้ใช้ปัจจุบัน
 // @access  Private
-router.get('/me', auth, async (req, res) => {
+router.get("/me", auth, async (req, res) => {
   try {
     // ค้นหาข้อมูลผู้ใช้จาก ID (ไม่รวมรหัสผ่าน)
     const result = await req.db.query(
-      'SELECT u.id, u.hospital_id, u.first_name, u.last_name, u.phone, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1',
+      "SELECT u.id, u.hospital_id, u.first_name, u.last_name, u.phone, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
       [req.user.id]
     );
 
     const user = result.rows[0];
 
     if (!user) {
-      return res.status(404).json({ message: 'ไม่พบผู้ใช้งาน' });
+      return res.status(404).json({ message: "ไม่พบผู้ใช้งาน" });
     }
 
     // หากเป็นผู้ป่วย ให้ดึงข้อมูลเพิ่มเติม
-    if (user.role === 'patient') {
+    if (user.role === "patient") {
       const patientResult = await req.db.query(
-        'SELECT * FROM patients WHERE user_id = $1',
+        "SELECT * FROM patients WHERE user_id = $1",
         [user.id]
       );
-      
+
       if (patientResult.rows.length > 0) {
         user.patient_data = patientResult.rows[0];
       }
@@ -184,8 +198,83 @@ router.get('/me', auth, async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์' });
+    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
   }
 });
+
+// @route   POST api/auth/update-profile
+// @desc    อัปเดตข้อมูลส่วนตัวของผู้ใช้ที่ล็อกอินอยู่
+// @access  Private
+router.post(
+  "/update-profile",
+  [
+    auth,
+    check("first_name", "กรุณาระบุชื่อ").optional().not().isEmpty(),
+    check("last_name", "กรุณาระบุนามสกุล").optional().not().isEmpty(),
+    check("phone", "กรุณาระบุเบอร์โทรศัพท์ที่ถูกต้อง")
+      .optional()
+      .matches(/^[0-9]{10}$/),
+  ],
+  async (req, res) => {
+    // ตรวจสอบความถูกต้องของข้อมูล
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { first_name, last_name, phone } = req.body;
+
+    try {
+      // ตรวจสอบว่าผู้ใช้มีอยู่หรือไม่
+      const userExists = await req.db.query(
+        "SELECT * FROM users WHERE id = $1",
+        [req.user.id]
+      );
+
+      if (userExists.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลผู้ใช้" });
+      }
+
+      // สร้างคำสั่ง SQL สำหรับอัปเดต
+      let updateFields = [];
+      let updateValues = [];
+      let paramIndex = 1;
+
+      if (first_name) {
+        updateFields.push(`first_name = $${paramIndex++}`);
+        updateValues.push(first_name);
+      }
+
+      if (last_name) {
+        updateFields.push(`last_name = $${paramIndex++}`);
+        updateValues.push(last_name);
+      }
+
+      if (phone) {
+        updateFields.push(`phone = $${paramIndex++}`);
+        updateValues.push(phone);
+      }
+
+      updateFields.push(`updated_at = $${paramIndex++}`);
+      updateValues.push(new Date());
+
+      // เพิ่ม ID ของผู้ใช้ที่จะอัปเดต
+      updateValues.push(req.user.id);
+
+      // อัปเดตข้อมูล
+      const result = await req.db.query(
+        `UPDATE users SET ${updateFields.join(
+          ", "
+        )} WHERE id = $${paramIndex} RETURNING id, hospital_id, first_name, last_name, phone, role_id, is_active`,
+        updateValues
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+    }
+  }
+);
 
 module.exports = router;
