@@ -41,23 +41,25 @@ const UserSchema = Yup.object().shape({
     })
 });
 
-const UserForm = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [loading, setLoading] = useState(false);
-  const [initializing, setInitializing] = useState(true);
-  const [roles, setRoles] = useState([]);
-  const [initialValues, setInitialValues] = useState({
-    hospital_id: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    role_id: '',
-    password: '',
-    is_active: true,
-    isNewUser: !id, // ถ้าไม่มี id คือเป็นการสร้างผู้ใช้ใหม่
-  });
+  const UserForm = ({ view = false }) => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [loading, setLoading] = useState(false);
+    const [initializing, setInitializing] = useState(true);
+    const [roles, setRoles] = useState([]);
+    const [initialValues, setInitialValues] = useState({
+      hospital_id: '',
+      first_name: '',
+      last_name: '',
+      phone: '',
+      role_id: '',
+      password: '',
+      is_active: true,
+      isNewUser: !id, // ถ้าไม่มี id คือเป็นการสร้างผู้ใช้ใหม่
+    });
+
+
 
   // ดึงพารามิเตอร์ role จาก query params ถ้ามี (สำหรับการเรียกจากหน้าพยาบาล)
   const queryParams = new URLSearchParams(location.search);
@@ -115,24 +117,7 @@ const UserForm = () => {
     fetchData();
   }, [id, defaultRole]);
 
-  const UserForm = ({ view = false }) => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [loading, setLoading] = useState(false);
-    const [initializing, setInitializing] = useState(true);
-    const [roles, setRoles] = useState([]);
-    const [initialValues, setInitialValues] = useState({
-      hospital_id: '',
-      first_name: '',
-      last_name: '',
-      phone: '',
-      role_id: '',
-      password: '',
-      is_active: true,
-      isNewUser: !id, // ถ้าไม่มี id คือเป็นการสร้างผู้ใช้ใหม่
-    });
-
+  
 
   // บันทึกข้อมูลผู้ใช้
   const handleSubmit = async (values, { setSubmitting }) => {
