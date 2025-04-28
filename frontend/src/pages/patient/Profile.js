@@ -75,48 +75,58 @@ const Profile = () => {
   };
 
   // บันทึกการแก้ไขข้อมูลส่วนตัว
-  const handleProfileUpdate = async (values, { setSubmitting }) => {
-    try {
-      // อัปเดตข้อมูลผู้ใช้
-      await axios.put(
-        `${process.env.REACT_APP_API_URL}/users/${currentUser.id}`,
-        {
-          first_name: values.first_name,
-          last_name: values.last_name,
-          phone: values.phone,
-        }
-      );
-
-      // อัปเดตข้อมูลผู้ป่วย (ถ้ามี)
-      if (patientData) {
-        const patientUpdateData = {
-          expected_delivery_date: expectedDeliveryDate
-            ? format(expectedDeliveryDate, "yyyy-MM-dd")
-            : null,
-          height: values.height || null,
-          pre_pregnancy_weight: values.pre_pregnancy_weight || null,
-          gestational_age_at_diagnosis:
-            values.gestational_age_at_diagnosis || null,
-          blood_type: values.blood_type || null,
-          previous_gdm: values.previous_gdm === "true",
-          family_diabetes_history: values.family_diabetes_history === "true",
-        };
-
-        await axios.put(
-          `${process.env.REACT_APP_API_URL}/patients/${patientData.id}`,
-          patientUpdateData
-        );
+ // แก้ไขฟังก์ชัน handleProfileUpdate ใน frontend/src/pages/patient/Profile.js
+const handleProfileUpdate = async (values, { setSubmitting }) => {
+  try {
+    // อัปเดตข้อมูลผู้ใช้
+    await axios.put(
+      `${process.env.REACT_APP_API_URL}/users/${currentUser.id}`,
+      {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        phone: values.phone,
       }
+    );
 
-      toast.success("อัปเดตข้อมูลสำเร็จ");
-      fetchUserData(); // ดึงข้อมูลใหม่
-    } catch (error) {
-      console.error("Error updating user profile:", error);
-      toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
-    } finally {
-      setSubmitting(false);
+    // อัปเดตข้อมูลผู้ป่วย (ถ้ามี)
+    if (patientData) {
+      // แก้ไขส่วนนี้: ควรส่งข้อมูลที่ถูกต้องและตรงตามที่ API คาดหวัง
+      const patientUpdateData = {
+        expected_delivery_date: expectedDeliveryDate
+          ? format(expectedDeliveryDate, "yyyy-MM-dd")
+          : null,
+        height: values.height ? parseFloat(values.height) : null,
+        pre_pregnancy_weight: values.pre_pregnancy_weight ? parseFloat(values.pre_pregnancy_weight) : null,
+        gestational_age_at_diagnosis: values.gestational_age_at_diagnosis ? parseInt(values.gestational_age_at_diagnosis) : null,
+        blood_type: values.blood_type || null,
+        previous_gdm: values.previous_gdm === "true",
+        family_diabetes_history: values.family_diabetes_history === "true",
+      };
+
+      console.log("Sending patient update data:", patientUpdateData);
+      
+      // แก้ไขส่วนนี้: ตรวจสอบให้แน่ใจว่า URL ถูกต้อง
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/patients/${patientData.id}`,
+        patientUpdateData
+      );
+      
+      console.log("Patient update response:", response.data);
     }
-  };
+
+    toast.success("อัปเดตข้อมูลสำเร็จ");
+    fetchUserData(); // ดึงข้อมูลใหม่
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+    }
+    toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // เปลี่ยนรหัสผ่าน
   const handlePasswordChange = async (values, { setSubmitting, resetForm }) => {
