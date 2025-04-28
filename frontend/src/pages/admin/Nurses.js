@@ -22,28 +22,34 @@ const Nurses = () => {
   const fetchNurses = async () => {
     try {
       setLoading(true);
-      // เรียกใช้ API จริง
-      const response = await axios.get(`${API_URL}/users?role=nurse`);
       
-      // จัดรูปแบบข้อมูลให้สอดคล้องกับการใช้งาน
-      const formattedNurses = response.data.map(nurse => {
-        // ตรวจสอบและกำหนดค่า patient_count หากไม่มีในข้อมูลจาก API
-        if (!nurse.patient_count && nurse.patient_count !== 0) {
-          // หากไม่มีข้อมูล patient_count ให้ดึงจาก endpoints อื่น
-          // หรือกำหนดเป็น 0 ไปก่อน ให้สอดคล้องกับโครงสร้างเดิม
-          nurse.patient_count = 0;
-        }
-        
-        return nurse;
+      // เรียกใช้ API จริง - ดึงเฉพาะผู้ใช้ที่มีบทบาทเป็นพยาบาล
+      const response = await axios.get(`${API_URL}/users`, {
+        params: { role: 'nurse' } // ส่งพารามิเตอร์เพื่อกรองเฉพาะพยาบาล
       });
       
-      setNurses(formattedNurses);
+      // จัดรูปแบบข้อมูลให้สอดคล้องกับการใช้งาน
+      let nurseData = [];
+      if (response.data && Array.isArray(response.data)) {
+        nurseData = response.data.filter(user => 
+          // กรองเฉพาะผู้ใช้ที่มีบทบาทเป็นพยาบาล (เพื่อความมั่นใจว่าได้รับเฉพาะพยาบาล)
+          user.role === 'nurse'
+        ).map(nurse => {
+          // ตรวจสอบและกำหนดค่า patient_count หากไม่มีในข้อมูลจาก API
+          if (!nurse.patient_count && nurse.patient_count !== 0) {
+            nurse.patient_count = 0;
+          }
+          
+          return nurse;
+        });
+      }
+      
+      setNurses(nurseData);
       setError(null);
     } catch (err) {
       console.error('Error fetching nurses data:', err);
       setError('ไม่สามารถดึงข้อมูลพยาบาลได้');
       toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลพยาบาล');
-      // กรณีเกิดข้อผิดพลาด ให้ใช้ข้อมูลตัวอย่างแทน (เพื่อให้ UI ยังใช้งานได้)
       setNurses([]);
     } finally {
       setLoading(false);
@@ -120,7 +126,7 @@ const Nurses = () => {
           <FaSearch className="absolute left-3 top-3 text-gray-400" />
         </div>
         <Link
-          to="/admin/nurses/new"
+          to="/admin/users/new?role=nurse"
           className="flex items-center justify-center md:justify-start bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <FaPlus className="mr-2" />
@@ -170,7 +176,7 @@ const Nurses = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex space-x-2">
                       <Link
-                        to={`/admin/nurses/${nurse.id}/edit`}
+                        to={`/admin/users/${nurse.id}/edit`}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         <FaEdit size={18} />

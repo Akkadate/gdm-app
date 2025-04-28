@@ -45,6 +45,7 @@ import AdminUsers from "./pages/admin/Users";
 import AdminReports from "./pages/admin/Reports";
 import AdminSystem from "./pages/admin/System";
 import AdminSettings from "./pages/admin/Settings";
+import UserForm from "./pages/admin/UserForm"; // เพิ่มไฟล์ UserForm ที่เราสร้างขึ้น
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -152,6 +153,8 @@ function App() {
             <Route path="nurses" element={<AdminNurses />} />
             <Route path="patients" element={<AdminPatients />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="users/:id/edit" element={<UserForm />} /> {/* เพิ่มเส้นทางสำหรับแก้ไขผู้ใช้ */}
+            <Route path="users/new" element={<UserForm />} /> {/* เพิ่มเส้นทางสำหรับเพิ่มผู้ใช้ใหม่ */}
             <Route path="reports" element={<AdminReports />} />
             <Route path="system" element={<AdminSystem />} />
             <Route path="settings" element={<AdminSettings />} />
