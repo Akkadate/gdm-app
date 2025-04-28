@@ -677,4 +677,152 @@ router.post(
   }
 );
 
+// @route   GET api/patients/by-user/:userId
+// @desc    ดึงข้อมูลผู้ป่วยตาม user_id
+// @access  Private
+router.get("/by-user/:userId", auth, async (req, res) => {
+  try {
+    // ตรวจสอบสิทธิ์ (ผู้ใช้ดูได้เฉพาะข้อมูลของตนเอง)
+    if (
+      req.user.id !== parseInt(req.params.userId) &&
+      req.user.role !== "admin" &&
+      req.user.role !== "nurse"
+    ) {
+      return res.status(403).json({ message: "ไม่มีสิทธิ์เข้าถึงข้อมูล" });
+    }
+
+    // ดึงข้อมูลผู้ป่วย
+    const result = await req.db.query(
+      `SELECT p.*, u.hospital_id, u.first_name, u.last_name, u.phone 
+       FROM patients p
+       JOIN users u ON p.user_id = u.id
+       WHERE u.id = $1`,
+      [req.params.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "ไม่พบข้อมูลผู้ป่วย" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+  }
+});
+
+// @route   POST api/patients/update-self
+// @desc    ผู้ป่วยอัปเดตข้อมูลของตนเอง
+// @access  Private
+router.post(
+  "/update-self",
+  [
+    auth,
+    check("date_of_birth", "รูปแบบวันเกิดไม่ถูกต้อง").optional().isDate(),
+    check("expected_delivery_date", "รูปแบบวันกำหนดคลอดไม่ถูกต้อง")
+      .optional()
+      .isDate(),
+    check("pre_pregnancy_weight", "น้ำหนักก่อนตั้งครรภ์ต้องเป็นตัวเลข")
+      .optional()
+      .isNumeric(),
+    check("height", "ส่วนสูงต้องเป็นตัวเลข").optional().isNumeric(),
+  ],
+  async (req, res) => {
+    // ตรวจสอบความถูกต้องของข้อมูล
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const {
+      date_of_birth,
+      gestational_age_at_diagnosis,
+      expected_delivery_date,
+      pre_pregnancy_weight,
+      height,
+      blood_type,
+      previous_gdm,
+      family_diabetes_history,
+    } = req.body;
+
+    try {
+      // ค้นหา patient_id ของผู้ใช้
+      const patientResult = await req.db.query(
+        "SELECT id FROM patients WHERE user_id = $1",
+        [req.user.id]
+      );
+
+      if (patientResult.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลผู้ป่วย" });
+      }
+
+      const patientId = patientResult.rows[0].id;
+
+      // สร้างคำสั่ง SQL สำหรับอัปเดต
+      let updateFields = [];
+      let updateValues = [];
+      let paramIndex = 1;
+
+      if (date_of_birth) {
+        updateFields.push(`date_of_birth = $${paramIndex++}`);
+        updateValues.push(date_of_birth);
+      }
+
+      if (gestational_age_at_diagnosis !== undefined) {
+        updateFields.push(`gestational_age_at_diagnosis = $${paramIndex++}`);
+        updateValues.push(gestational_age_at_diagnosis);
+      }
+
+      if (expected_delivery_date) {
+        updateFields.push(`expected_delivery_date = $${paramIndex++}`);
+        updateValues.push(expected_delivery_date);
+      }
+
+      if (pre_pregnancy_weight) {
+        updateFields.push(`pre_pregnancy_weight = $${paramIndex++}`);
+        updateValues.push(pre_pregnancy_weight);
+      }
+
+      if (height) {
+        updateFields.push(`height = $${paramIndex++}`);
+        updateValues.push(height);
+      }
+
+      if (blood_type) {
+        updateFields.push(`blood_type = $${paramIndex++}`);
+        updateValues.push(blood_type);
+      }
+
+      if (previous_gdm !== undefined) {
+        updateFields.push(`previous_gdm = $${paramIndex++}`);
+        updateValues.push(previous_gdm);
+      }
+
+      if (family_diabetes_history !== undefined) {
+        updateFields.push(`family_diabetes_history = $${paramIndex++}`);
+        updateValues.push(family_diabetes_history);
+      }
+
+      updateFields.push(`updated_at = $${paramIndex++}`);
+      updateValues.push(new Date());
+
+      // เพิ่ม ID ของผู้ป่วยที่จะอัปเดต
+      updateValues.push(patientId);
+
+      // อัปเดตข้อมูล
+      const result = await req.db.query(
+        `UPDATE patients SET ${updateFields.join(
+          ", "
+        )} WHERE id = $${paramIndex} RETURNING *`,
+        updateValues
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+    }
+  }
+);
+
 module.exports = router;

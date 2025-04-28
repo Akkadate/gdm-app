@@ -208,7 +208,7 @@ router.get("/me", auth, async (req, res) => {
 router.post(
   "/update-profile",
   [
-    auth,
+    auth, // ใช้ middleware auth แทน authAdmin
     check("first_name", "กรุณาระบุชื่อ").optional().not().isEmpty(),
     check("last_name", "กรุณาระบุนามสกุล").optional().not().isEmpty(),
     check("phone", "กรุณาระบุเบอร์โทรศัพท์ที่ถูกต้อง")

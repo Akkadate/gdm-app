@@ -7,7 +7,7 @@ import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
-import { API_URL } from "../../config"; // แก้ไข: ใช้ API_URL จาก config
+import { API_URL } from "../../config";
 
 // Validation Schema สำหรับการแก้ไขข้อมูลผู้ใช้
 const ProfileSchema = Yup.object().shape({
@@ -30,12 +30,13 @@ const PasswordSchema = Yup.object().shape({
 });
 
 const Profile = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, updateUserData } = useAuth();
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [patientData, setPatientData] = useState(null);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(null);
   const [activeTab, setActiveTab] = useState("profile"); // 'profile' หรือ 'password'
+  const [patientId, setPatientId] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -46,33 +47,24 @@ const Profile = () => {
     try {
       setLoading(true);
 
-      // ดึงข้อมูลผู้ใช้ปัจจุบัน - ไม่ใช้ /auth/me เพราะอาจมีปัญหา
-      // แทนที่จะดึงข้อมูลผู้ใช้ใหม่ ให้ใช้ currentUser ที่มีอยู่แล้ว
+      // ข้อมูลผู้ใช้จาก currentUser
       setUserData(currentUser);
 
-      // ถ้าบทบาทเป็นผู้ป่วย ค้นหา patient_id
       if (currentUser && currentUser.role === "patient") {
         try {
-          // ดึงข้อมูล patient_id เพื่อใช้ในการดึงข้อมูลผู้ป่วย
-          const patientResult = await axios.get(
-            `${API_URL}/patients?user_id=${currentUser.id}`
+          // ค้นหา patient_id จาก user_id
+          const patientResponse = await axios.get(
+            `${API_URL}/patients/by-user/${currentUser.id}`
           );
 
-          if (patientResult.data && patientResult.data.length > 0) {
-            const patientId = patientResult.data[0].id;
-
-            // ดึงข้อมูลผู้ป่วย
-            const patientResponse = await axios.get(
-              `${API_URL}/patients/${patientId}`
-            );
-            const patientInfo = patientResponse.data;
-
-            setPatientData(patientInfo);
+          if (patientResponse.data) {
+            setPatientData(patientResponse.data);
+            setPatientId(patientResponse.data.id);
 
             // ตั้งค่าวันกำหนดคลอด (ถ้ามี)
-            if (patientInfo.expected_delivery_date) {
+            if (patientResponse.data.expected_delivery_date) {
               setExpectedDeliveryDate(
-                new Date(patientInfo.expected_delivery_date)
+                new Date(patientResponse.data.expected_delivery_date)
               );
             }
           }
@@ -88,31 +80,31 @@ const Profile = () => {
     }
   };
 
-  // บันทึกการแก้ไขข้อมูลส่วนตัว - แก้ไขใหม่ทั้งหมด
+  // บันทึกการแก้ไขข้อมูลส่วนตัว
   const handleProfileUpdate = async (values, { setSubmitting }) => {
     console.log("Profile update started with values:", values);
 
     try {
-      // แก้ไข: ไม่ใช้ /users/:id แต่ใช้ /auth/profile แทน (ถ้ามี)
-      // ถ้าไม่มี ให้เขียน API endpoint ใหม่ที่ให้ผู้ใช้อัปเดตโปรไฟล์ของตัวเอง
+      // อัปเดตข้อมูลผู้ใช้
+      console.log("Updating user info...");
 
-      // ตรวจสอบว่า currentUser มี id หรือไม่
-      if (!currentUser || !currentUser.id) {
-        throw new Error("ไม่พบข้อมูลผู้ใช้");
-      }
-
-      // ใช้ /auth/update-profile แทน (สมมติว่ามี endpoint นี้)
-      // หรือสร้าง endpoint นี้ในไฟล์ auth.routes.js
-      await axios.post(`${API_URL}/auth/update-profile`, {
+      // ใช้ API endpoint สำหรับอัปเดตโปรไฟล์
+      const userResponse = await axios.post(`${API_URL}/auth/update-profile`, {
         first_name: values.first_name,
         last_name: values.last_name,
         phone: values.phone,
       });
 
-      console.log("User info updated successfully");
+      console.log("User info updated successfully:", userResponse.data);
+
+      // อัปเดตข้อมูล context
+      if (updateUserData) {
+        updateUserData(userResponse.data);
+      }
 
       // อัปเดตข้อมูลผู้ป่วย (ถ้ามี)
-      if (patientData && patientData.id) {
+      if (patientId) {
+        // ข้อมูลการอัปเดตผู้ป่วย
         const patientUpdateData = {
           expected_delivery_date: expectedDeliveryDate
             ? format(expectedDeliveryDate, "yyyy-MM-dd")
@@ -131,8 +123,7 @@ const Profile = () => {
 
         console.log("Sending patient update data:", patientUpdateData);
 
-        // ใช้ endpoint พิเศษสำหรับผู้ป่วยอัปเดตข้อมูลตัวเอง
-        // หรือสร้าง endpoint นี้ใน patients.routes.js
+        // เรียกใช้ API endpoint สำหรับอัปเดตข้อมูลผู้ป่วย
         const response = await axios.post(
           `${API_URL}/patients/update-self`,
           patientUpdateData
@@ -185,14 +176,6 @@ const Profile = () => {
     }
   };
 
-  // ตัวเลือกอีกรูปแบบหนึ่ง: ไม่อนุญาตให้อัปเดตข้อมูลโปรไฟล์เลย
-  const handleProfileUpdateDisabled = (values, { setSubmitting }) => {
-    toast.info(
-      "การแก้ไขข้อมูลส่วนตัวยังไม่เปิดให้บริการ กรุณาติดต่อเจ้าหน้าที่"
-    );
-    setSubmitting(false);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex justify-center items-center">
@@ -231,17 +214,9 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* ข้อมูลส่วนตัว - แก้ไข: เพิ่มข้อความแจ้งเตือนว่าแก้ไขไม่ได้ */}
+      {/* ข้อมูลส่วนตัว */}
       {activeTab === "profile" && userData && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-            <p className="text-yellow-700">
-              <strong>หมายเหตุ:</strong>{" "}
-              การแก้ไขข้อมูลส่วนตัวยังไม่เปิดให้บริการในขณะนี้
-              กรุณาติดต่อเจ้าหน้าที่หากต้องการแก้ไขข้อมูล
-            </p>
-          </div>
-
           <Formik
             initialValues={{
               first_name: userData.first_name || "",
@@ -258,7 +233,7 @@ const Profile = () => {
                 : "false",
             }}
             validationSchema={ProfileSchema}
-            onSubmit={handleProfileUpdateDisabled} // แก้ไข: ใช้ฟังก์ชันที่แจ้งเตือนว่าแก้ไขไม่ได้
+            onSubmit={handleProfileUpdate}
           >
             {({ isSubmitting }) => (
               <Form className="space-y-6">
@@ -289,8 +264,12 @@ const Profile = () => {
                         <Field
                           name="first_name"
                           type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <ErrorMessage
+                          name="first_name"
+                          component="div"
+                          className="text-red-500 text-xs mt-1"
                         />
                       </div>
 
@@ -304,8 +283,12 @@ const Profile = () => {
                         <Field
                           name="last_name"
                           type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <ErrorMessage
+                          name="last_name"
+                          component="div"
+                          className="text-red-500 text-xs mt-1"
                         />
                       </div>
 
@@ -319,8 +302,12 @@ const Profile = () => {
                         <Field
                           name="phone"
                           type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <ErrorMessage
+                          name="phone"
+                          component="div"
+                          className="text-red-500 text-xs mt-1"
                         />
                       </div>
                     </div>
@@ -340,11 +327,14 @@ const Profile = () => {
                           >
                             วันกำหนดคลอด
                           </label>
-                          <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md text-gray-700">
-                            {expectedDeliveryDate
-                              ? format(expectedDeliveryDate, "dd/MM/yyyy")
-                              : "ไม่ระบุ"}
-                          </div>
+                          <DatePicker
+                            selected={expectedDeliveryDate}
+                            onChange={(date) => setExpectedDeliveryDate(date)}
+                            dateFormat="dd/MM/yyyy"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholderText="เลือกวันกำหนดคลอด"
+                            minDate={new Date()}
+                          />
                         </div>
 
                         <div>
@@ -357,8 +347,9 @@ const Profile = () => {
                           <Field
                             name="gestational_age_at_diagnosis"
                             type="number"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                            readOnly
+                            min="1"
+                            max="42"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                           />
                         </div>
 
@@ -372,8 +363,10 @@ const Profile = () => {
                           <Field
                             name="height"
                             type="number"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                            readOnly
+                            step="0.1"
+                            min="100"
+                            max="200"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                           />
                         </div>
 
@@ -387,8 +380,10 @@ const Profile = () => {
                           <Field
                             name="pre_pregnancy_weight"
                             type="number"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                            readOnly
+                            step="0.1"
+                            min="30"
+                            max="200"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                           />
                         </div>
 
@@ -400,19 +395,49 @@ const Profile = () => {
                             กรุ๊ปเลือด
                           </label>
                           <Field
+                            as="select"
                             name="blood_type"
-                            type="text"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                            readOnly
-                          />
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          >
+                            <option value="">-- เลือกกรุ๊ปเลือด --</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="AB">AB</option>
+                            <option value="O">O</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                          </Field>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             เคยเป็นเบาหวานขณะตั้งครรภ์มาก่อน
                           </label>
-                          <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md text-gray-700">
-                            {patientData.previous_gdm ? "เคย" : "ไม่เคย"}
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <Field
+                                type="radio"
+                                name="previous_gdm"
+                                value="true"
+                                className="form-radio h-4 w-4 text-indigo-600"
+                              />
+                              <span className="ml-2">เคย</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <Field
+                                type="radio"
+                                name="previous_gdm"
+                                value="false"
+                                className="form-radio h-4 w-4 text-indigo-600"
+                              />
+                              <span className="ml-2">ไม่เคย</span>
+                            </label>
                           </div>
                         </div>
 
@@ -420,10 +445,25 @@ const Profile = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             มีประวัติเบาหวานในครอบครัว
                           </label>
-                          <div className="bg-gray-100 px-3 py-2 border border-gray-300 rounded-md text-gray-700">
-                            {patientData.family_diabetes_history
-                              ? "มี"
-                              : "ไม่มี"}
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <Field
+                                type="radio"
+                                name="family_diabetes_history"
+                                value="true"
+                                className="form-radio h-4 w-4 text-indigo-600"
+                              />
+                              <span className="ml-2">มี</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <Field
+                                type="radio"
+                                name="family_diabetes_history"
+                                value="false"
+                                className="form-radio h-4 w-4 text-indigo-600"
+                              />
+                              <span className="ml-2">ไม่มี</span>
+                            </label>
                           </div>
                         </div>
                       </div>
@@ -431,18 +471,13 @@ const Profile = () => {
                   )}
                 </div>
 
-                {/* แก้ไข: ซ่อนปุ่มบันทึก หรือแทนที่ด้วยปุ่ม "ติดต่อเจ้าหน้าที่" */}
                 <div className="flex justify-end">
                   <button
-                    type="button"
-                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                    onClick={() =>
-                      toast.info(
-                        "กรุณาติดต่อเจ้าหน้าที่เพื่อแก้ไขข้อมูลส่วนตัว"
-                      )
-                    }
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300"
                   >
-                    ติดต่อเจ้าหน้าที่
+                    {isSubmitting ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
                   </button>
                 </div>
               </Form>
