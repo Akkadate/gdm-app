@@ -8,6 +8,7 @@ import { FaUser, FaSave, FaArrowLeft } from 'react-icons/fa';
 import { API_URL } from '../../config';
 
 // สร้าง Schema สำหรับตรวจสอบความถูกต้องของข้อมูล
+// สร้าง Schema สำหรับตรวจสอบความถูกต้องของข้อมูล
 const UserSchema = Yup.object().shape({
   hospital_id: Yup.string()
     .required('กรุณาระบุเลขประจำตัว'),
@@ -21,10 +22,22 @@ const UserSchema = Yup.object().shape({
   role_id: Yup.number()
     .required('กรุณาเลือกบทบาท'),
   password: Yup.string()
-    .when('isNewUser', {
-      is: true,
-      then: Yup.string().required('กรุณาระบุรหัสผ่าน').min(6, 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'),
-      otherwise: Yup.string().min(6, 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร')
+    .test('password-validation', function(value) {
+      // ถ้าเป็นผู้ใช้ใหม่ ต้องมีรหัสผ่าน
+      if (this.parent.isNewUser && (!value || value.length === 0)) {
+        return this.createError({
+          message: 'กรุณาระบุรหัสผ่าน'
+        });
+      }
+      
+      // ถ้ามีการกรอกรหัสผ่าน ต้องมีความยาวอย่างน้อย 6 ตัวอักษร
+      if (value && value.length > 0 && value.length < 6) {
+        return this.createError({
+          message: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'
+        });
+      }
+      
+      return true;
     })
 });
 
@@ -56,18 +69,13 @@ const UserForm = () => {
       try {
         setInitializing(true);
         
-        // ดึงข้อมูลบทบาททั้งหมด
-        const rolesResponse = await axios.get(`${API_URL}/roles`);
-        if (rolesResponse.data && Array.isArray(rolesResponse.data)) {
-          setRoles(rolesResponse.data);
-        } else {
-          // ในกรณีที่ API roles ยังไม่พร้อม กำหนดค่าเริ่มต้น
-          setRoles([
-            { id: 1, name: 'admin' },
-            { id: 2, name: 'nurse' },
-            { id: 3, name: 'patient' }
-          ]);
-        }
+        // กำหนดบทบาททั้งหมดแบบคงที่ เนื่องจาก API roles ไม่มีในระบบ
+        const rolesData = [
+          { id: 1, name: 'admin' },
+          { id: 2, name: 'nurse' },
+          { id: 3, name: 'patient' }
+        ];
+        setRoles(rolesData);
         
         // ถ้ามี ID ให้ดึงข้อมูลผู้ใช้
         if (id) {
@@ -87,7 +95,7 @@ const UserForm = () => {
           }
         } else if (defaultRole) {
           // ถ้าไม่มี ID แต่มีการกำหนด role จาก query params
-          const roleObj = rolesResponse.data?.find(r => r.name === defaultRole) || 
+          const roleObj = rolesData.find(r => r.name === defaultRole) || 
                            { id: defaultRole === 'nurse' ? 2 : (defaultRole === 'patient' ? 3 : 1) };
           
           setInitialValues({
