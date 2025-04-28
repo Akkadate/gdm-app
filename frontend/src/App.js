@@ -153,8 +153,9 @@ function App() {
             <Route path="nurses" element={<AdminNurses />} />
             <Route path="patients" element={<AdminPatients />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="users/:id/edit" element={<UserForm />} /> {/* เพิ่มเส้นทางสำหรับแก้ไขผู้ใช้ */}
-            <Route path="users/new" element={<UserForm />} /> {/* เพิ่มเส้นทางสำหรับเพิ่มผู้ใช้ใหม่ */}
+            <Route path="users/:id/edit" element={<UserForm />} /> {/* เส้นทางสำหรับแก้ไขผู้ใช้ */}
+            <Route path="users/:id/view" element={<UserForm view={true} />} /> {/* เส้นทางสำหรับดูข้อมูลผู้ใช้ */}
+            <Route path="users/new" element={<UserForm />} /> {/* เส้นทางสำหรับเพิ่มผู้ใช้ใหม่ */}
             <Route path="reports" element={<AdminReports />} />
             <Route path="system" element={<AdminSystem />} />
             <Route path="settings" element={<AdminSettings />} />

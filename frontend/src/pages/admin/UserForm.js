@@ -115,6 +115,25 @@ const UserForm = () => {
     fetchData();
   }, [id, defaultRole]);
 
+  const UserForm = ({ view = false }) => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [loading, setLoading] = useState(false);
+    const [initializing, setInitializing] = useState(true);
+    const [roles, setRoles] = useState([]);
+    const [initialValues, setInitialValues] = useState({
+      hospital_id: '',
+      first_name: '',
+      last_name: '',
+      phone: '',
+      role_id: '',
+      password: '',
+      is_active: true,
+      isNewUser: !id, // ถ้าไม่มี id คือเป็นการสร้างผู้ใช้ใหม่
+    });
+
+
   // บันทึกข้อมูลผู้ใช้
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
@@ -173,13 +192,21 @@ const UserForm = () => {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="mb-6 flex items-center justify-between">
+     <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-2">
-            {id ? 'แก้ไขข้อมูลผู้ใช้' : (defaultRole === 'nurse' ? 'เพิ่มพยาบาลใหม่' : 'เพิ่มผู้ใช้ใหม่')}
+            {view 
+              ? 'ข้อมูลผู้ใช้'
+              : (id 
+                ? 'แก้ไขข้อมูลผู้ใช้' 
+                : (defaultRole === 'nurse' 
+                  ? 'เพิ่มพยาบาลใหม่' 
+                  : (defaultRole === 'patient' 
+                    ? 'เพิ่มผู้ป่วยใหม่' 
+                    : 'เพิ่มผู้ใช้ใหม่')))}
           </h1>
           <p className="text-gray-600">
-            {id ? 'แก้ไขข้อมูลผู้ใช้ในระบบ' : 'เพิ่มผู้ใช้ใหม่เข้าสู่ระบบ'}
+            {view ? 'ดูรายละเอียดข้อมูลผู้ใช้' : (id ? 'แก้ไขข้อมูลผู้ใช้ในระบบ' : 'เพิ่มผู้ใช้ใหม่เข้าสู่ระบบ')}
           </p>
         </div>
         <button
@@ -206,8 +233,9 @@ const UserForm = () => {
                     type="text"
                     id="hospital_id"
                     name="hospital_id"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md ${view ? 'bg-gray-100' : 'focus:outline-none focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="เลขประจำตัว"
+                    disabled={view}
                   />
                   <ErrorMessage name="hospital_id" component="div" className="text-red-500 mt-1 text-sm" />
                 </div>
@@ -218,8 +246,8 @@ const UserForm = () => {
                     as="select"
                     id="role_id"
                     name="role_id"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    disabled={defaultRole === 'nurse'}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md ${view ? 'bg-gray-100' : 'focus:outline-none focus:ring-blue-500 focus:border-blue-500'}`}
+                    disabled={view || defaultRole === 'nurse'}
                   >
                     <option value="">-- เลือกบทบาท --</option>
                     {roles.map(role => (
@@ -239,8 +267,9 @@ const UserForm = () => {
                     type="text"
                     id="first_name"
                     name="first_name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md ${view ? 'bg-gray-100' : 'focus:outline-none focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="ชื่อ"
+                    disabled={view}
                   />
                   <ErrorMessage name="first_name" component="div" className="text-red-500 mt-1 text-sm" />
                 </div>
@@ -251,8 +280,9 @@ const UserForm = () => {
                     type="text"
                     id="last_name"
                     name="last_name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md ${view ? 'bg-gray-100' : 'focus:outline-none focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="นามสกุล"
+                    disabled={view}
                   />
                   <ErrorMessage name="last_name" component="div" className="text-red-500 mt-1 text-sm" />
                 </div>
@@ -263,25 +293,28 @@ const UserForm = () => {
                     type="text"
                     id="phone"
                     name="phone"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md ${view ? 'bg-gray-100' : 'focus:outline-none focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="เบอร์โทรศัพท์"
+                    disabled={view}
                   />
                   <ErrorMessage name="phone" component="div" className="text-red-500 mt-1 text-sm" />
                 </div>
 
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    {id ? 'รหัสผ่าน (กรอกเฉพาะเมื่อต้องการเปลี่ยน)' : 'รหัสผ่าน'}
-                  </label>
-                  <Field
-                    type="password"
-                    id="password"
-                    name="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={id ? 'ระบุรหัสผ่านใหม่ (ถ้าต้องการเปลี่ยน)' : 'รหัสผ่าน'}
-                  />
-                  <ErrorMessage name="password" component="div" className="text-red-500 mt-1 text-sm" />
-                </div>
+                {!view && (
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                      {id ? 'รหัสผ่าน (กรอกเฉพาะเมื่อต้องการเปลี่ยน)' : 'รหัสผ่าน'}
+                    </label>
+                    <Field
+                      type="password"
+                      id="password"
+                      name="password"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={id ? 'ระบุรหัสผ่านใหม่ (ถ้าต้องการเปลี่ยน)' : 'รหัสผ่าน'}
+                    />
+                    <ErrorMessage name="password" component="div" className="text-red-500 mt-1 text-sm" />
+                  </div>
+                )}
 
                 <div className="flex items-center mt-4">
                   <Field
@@ -289,6 +322,7 @@ const UserForm = () => {
                     id="is_active"
                     name="is_active"
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    disabled={view}
                   />
                   <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
                     เปิดใช้งานบัญชีนี้
@@ -296,22 +330,24 @@ const UserForm = () => {
                 </div>
               </div>
 
-              <div className="mt-8 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 mr-2"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || loading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center disabled:bg-blue-300"
-                >
-                  <FaSave className="mr-2" /> {loading ? 'กำลังบันทึก...' : 'บันทึก'}
-                </button>
-              </div>
+              {!view && (
+                <div className="mt-8 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 mr-2"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || loading}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center disabled:bg-blue-300"
+                  >
+                    <FaSave className="mr-2" /> {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+                  </button>
+                </div>
+              )}
             </Form>
           )}
         </Formik>

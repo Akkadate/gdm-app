@@ -21,31 +21,35 @@ const Patients = () => {
   }, []);
 
   // ฟังก์ชันดึงข้อมูลผู้ป่วยจาก API
+  // ฟังก์ชันดึงข้อมูลผู้ป่วยจาก API
   const fetchPatients = async () => {
     try {
       setLoading(true);
-      // เรียกใช้ API จริง
+      // เรียกใช้ API จริงเพื่อดึงข้อมูลผู้ป่วย
       const response = await axios.get(`${API_URL}/patients`);
       
       if (response.data && Array.isArray(response.data)) {
         // แปลงข้อมูลให้เข้ากับรูปแบบที่ใช้ในหน้า UI
-        const formattedPatients = response.data.map(patient => {
-          // หากมีการใช้ชื่อฟิลด์ที่แตกต่างกัน
-          return {
-            id: patient.id,
-            hospital_id: patient.hospital_id || '',
-            first_name: patient.first_name || '',
-            last_name: patient.last_name || '',
-            phone: patient.phone || '',
-            date_of_birth: patient.date_of_birth || null,
-            gestational_age: patient.gestational_age_at_diagnosis || null,
-            expected_delivery_date: patient.expected_delivery_date || null,
-            assigned_nurse_name: patient.nurse_first_name 
-              ? `${patient.nurse_first_name} ${patient.nurse_last_name || ''}` 
-              : 'ไม่ระบุ',
-            status: patient.is_active ? 'active' : 'inactive'
-          };
-        });
+        const formattedPatients = response.data
+          // กรองเฉพาะข้อมูลผู้ป่วย (ตรวจสอบจากข้อมูลที่มี user_id หรือตัวบ่งชี้อื่นๆ)
+          .filter(patient => patient.user_id) // หรือใช้เงื่อนไขอื่นๆ ตามโครงสร้างข้อมูลจริง
+          .map(patient => {
+            // หากมีการใช้ชื่อฟิลด์ที่แตกต่างกัน
+            return {
+              id: patient.id,
+              hospital_id: patient.hospital_id || '',
+              first_name: patient.first_name || '',
+              last_name: patient.last_name || '',
+              phone: patient.phone || '',
+              date_of_birth: patient.date_of_birth || null,
+              gestational_age: patient.gestational_age_at_diagnosis || null,
+              expected_delivery_date: patient.expected_delivery_date || null,
+              assigned_nurse_name: patient.nurse_first_name 
+                ? `${patient.nurse_first_name} ${patient.nurse_last_name || ''}` 
+                : 'ไม่ระบุ',
+              status: patient.is_active ? 'active' : 'inactive'
+            };
+          });
         
         setPatients(formattedPatients);
         setError(null);
@@ -247,14 +251,14 @@ const Patients = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex space-x-2">
                       <Link
-                        to={`/admin/patients/${patient.id}/view`}
+                        to={`/admin/users/${patient.id}/view`}
                         className="text-blue-600 hover:text-blue-900"
                         title="ดูข้อมูล"
                       >
                         <FaEye size={18} />
                       </Link>
                       <Link
-                        to={`/admin/patients/${patient.id}/edit`}
+                        to={`/admin/users/${patient.id}/edit`}
                         className="text-green-600 hover:text-green-900"
                         title="แก้ไข"
                       >
