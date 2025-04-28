@@ -7,7 +7,7 @@ const { Pool } = require("pg");
 
 // เพิ่ม routes ใหม่
 const patientsRoutes = require("./routes/patients.routes");
-const glucoseRecordsRoutes = require("./routes/glucose-records.routes");
+const glucoseReadingsRoutes = require("./routes/glucose-readings.routes");
 const medicationsRoutes = require("./routes/medications.routes");
 
 // ตั้งค่า Express app
@@ -56,7 +56,7 @@ app.use("/api/reports", require("./routes/reports.routes"));
 
 // ใช้งาน routes
 app.use("/api/patients", patientsRoutes);
-app.use("/api/glucose-records", glucoseRecordsRoutes);
+app.use("/api/glucose-readings", glucoseReadingsRoutes);
 app.use("/api/medications", medicationsRoutes);
 
 // Basic route for testing

@@ -1,3 +1,4 @@
+// medications.routes.js
 const express = require("express");
 const router = express.Router();
 const { check, validationResult } = require("express-validator");
@@ -11,32 +12,51 @@ router.get("/", auth, async (req, res) => {
     let patientId;
 
     // ตรวจสอบบทบาทผู้ใช้
-    const userResult = await req.db.query(
-      "SELECT r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
-      [req.user.id]
-    );
-    const role = userResult.rows[0].role;
-
-    // กรณีผู้ป่วยดูข้อมูลตัวเอง
-    if (role === "patient") {
-      const patientResult = await req.db.query(
-        "SELECT id FROM patients WHERE user_id = $1",
+    try {
+      const userResult = await req.db.query(
+        "SELECT r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
         [req.user.id]
       );
 
-      if (patientResult.rows.length === 0) {
-        return res.status(404).json({ message: "ไม่พบข้อมูลผู้ป่วย" });
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลผู้ใช้" });
       }
 
-      patientId = patientResult.rows[0].id;
-    }
-    // กรณีพยาบาลหรือแอดมินดูข้อมูลของผู้ป่วยคนใดคนหนึ่ง
-    else if ((role === "nurse" || role === "admin") && req.query.patient_id) {
-      patientId = req.query.patient_id;
-    }
-    // กรณีไม่ระบุ patient_id และไม่ใช่ผู้ป่วย
-    else {
-      return res.status(400).json({ message: "กรุณาระบุรหัสผู้ป่วย" });
+      const role = userResult.rows[0].role;
+
+      // กรณีผู้ป่วยดูข้อมูลตัวเอง
+      if (role === "patient") {
+        try {
+          const patientResult = await req.db.query(
+            "SELECT id FROM patients WHERE user_id = $1",
+            [req.user.id]
+          );
+
+          if (patientResult.rows.length === 0) {
+            return res.json([]);
+          }
+
+          patientId = patientResult.rows[0].id;
+        } catch (err) {
+          console.error("Error finding patient ID:", err);
+          return res
+            .status(500)
+            .json({ message: "เกิดข้อผิดพลาดในการค้นหาข้อมูลผู้ป่วย" });
+        }
+      }
+      // กรณีพยาบาลหรือแอดมินดูข้อมูลของผู้ป่วยคนใดคนหนึ่ง
+      else if ((role === "nurse" || role === "admin") && req.query.patient_id) {
+        patientId = req.query.patient_id;
+      }
+      // กรณีไม่ระบุ patient_id และไม่ใช่ผู้ป่วย
+      else {
+        return res.json([]);
+      }
+    } catch (err) {
+      console.error("Error checking user role:", err);
+      return res
+        .status(500)
+        .json({ message: "เกิดข้อผิดพลาดในการตรวจสอบบทบาทผู้ใช้" });
     }
 
     // สร้าง query
@@ -63,8 +83,8 @@ router.get("/", auth, async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+    console.error("Error querying medications:", err);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการดึงข้อมูลยา" });
   }
 });
 
@@ -95,6 +115,7 @@ router.post(
       start_date,
       end_date,
       notes,
+      prescribed_by,
     } = req.body;
 
     try {
@@ -110,7 +131,7 @@ router.post(
 
       // บันทึกข้อมูลยา
       const result = await req.db.query(
-        "INSERT INTO medications (patient_id, medication_name, dosage, frequency, start_date, end_date, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+        "INSERT INTO medications (patient_id, medication_name, dosage, frequency, start_date, end_date, notes, prescribed_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
         [
           patient_id,
           medication_name,
@@ -119,6 +140,7 @@ router.post(
           start_date,
           end_date,
           notes,
+          prescribed_by || req.user.id,
         ]
       );
 

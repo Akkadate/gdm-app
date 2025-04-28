@@ -17,101 +17,102 @@ import { GiMedicines } from "react-icons/gi";
 const PatientDashboard = () => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [patientData, setPatientData] = useState(null);
   const [patientId, setPatientId] = useState(null);
   const [appointments, setAppointments] = useState([]);
-  const [glucoseRecords, setGlucoseRecords] = useState([]);
+  const [glucoseReadings, setGlucoseReadings] = useState([]);
   const [medications, setMedications] = useState([]);
 
-  // ฟังก์ชันสำหรับดึงข้อมูล patient_id จาก user_id
-  const getPatientId = async (userId) => {
-    try {
-      // ใช้ endpoint /patients/by-user/:userId ที่เราสร้างขึ้นใหม่
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/patients/by-user/${userId}`
-      );
-      if (response.data) {
-        return response.data.id;
-      }
-      return null;
-    } catch (error) {
-      console.error("Error getting patient ID:", error);
-      return null;
-    }
-  };
+  // กำหนด API base URL
+  const API_URL = process.env.REACT_APP_API_URL || "";
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        setError(null);
 
         if (currentUser && currentUser.id) {
-          // ขั้นตอนที่ 1: ดึง patient_id
-          const patientId = await getPatientId(currentUser.id);
-
-          if (patientId) {
-            setPatientId(patientId);
-
-            // ขั้นตอนที่ 2: ดึงข้อมูลผู้ป่วย
+          // ขั้นตอนที่ 1: ดึงข้อมูลผู้ป่วย
+          try {
             const patientResponse = await axios.get(
-              `${process.env.REACT_APP_API_URL}/patients/by-user/${currentUser.id}`
+              `${API_URL}/patients/by-user/${currentUser.id}`
             );
             if (patientResponse.data) {
               setPatientData(patientResponse.data);
-            }
+              setPatientId(patientResponse.data.id);
 
-            // ขั้นตอนที่ 3: ดึงข้อมูลการนัดหมาย (แก้ไขให้ใช้ endpoint ที่ถูกต้อง)
-            // ใช้ endpoint /appointments?upcoming=true&limit=5 ที่มีอยู่แล้ว
-            const appointmentsResponse = await axios.get(
-              `${process.env.REACT_APP_API_URL}/appointments?upcoming=true&limit=5`
-            );
-            if (appointmentsResponse.data) {
-              setAppointments(appointmentsResponse.data);
-            }
-
-            // ขั้นตอนที่ 4: ดึงข้อมูลระดับน้ำตาล
-            // ตรวจสอบว่ามี endpoint นี้อยู่จริงหรือไม่
-            try {
-              const glucoseResponse = await axios.get(
-                `${process.env.REACT_APP_API_URL}/glucose-records?limit=5`
-              );
-              if (glucoseResponse.data) {
-                setGlucoseRecords(glucoseResponse.data);
+              // ขั้นตอนที่ 2: ดึงข้อมูลการนัดหมาย
+              try {
+                const appointmentsResponse = await axios.get(
+                  `${API_URL}/appointments?upcoming=true&limit=5`
+                );
+                setAppointments(appointmentsResponse.data || []);
+              } catch (appointmentsError) {
+                console.error(
+                  "Error fetching appointments:",
+                  appointmentsError
+                );
+                setAppointments([]);
               }
-            } catch (error) {
-              console.error("Error fetching glucose records:", error);
-              setGlucoseRecords([]);
-            }
 
-            // ขั้นตอนที่ 5: ดึงข้อมูลการใช้ยา
-            // ตรวจสอบว่ามี endpoint นี้อยู่จริงหรือไม่
-            try {
-              const medicationsResponse = await axios.get(
-                `${process.env.REACT_APP_API_URL}/medications?active=true`
-              );
-              if (medicationsResponse.data) {
-                setMedications(medicationsResponse.data);
+              // ขั้นตอนที่ 3: ดึงข้อมูลระดับน้ำตาล - ใช้ glucose_readings แทน glucose_records
+              try {
+                const glucoseResponse = await axios.get(
+                  `${API_URL}/glucose-readings?limit=5`
+                );
+                setGlucoseReadings(glucoseResponse.data || []);
+              } catch (glucoseError) {
+                console.error("Error fetching glucose readings:", glucoseError);
+                setGlucoseReadings([]);
               }
-            } catch (error) {
-              console.error("Error fetching medications:", error);
-              setMedications([]);
+
+              // ขั้นตอนที่ 4: ดึงข้อมูลการใช้ยา
+              try {
+                const medicationsResponse = await axios.get(
+                  `${API_URL}/medications?active=true`
+                );
+                setMedications(medicationsResponse.data || []);
+              } catch (medicationsError) {
+                console.error("Error fetching medications:", medicationsError);
+                setMedications([]);
+              }
             }
+          } catch (patientError) {
+            console.error("Error fetching patient data:", patientError);
+            setPatientData(null);
+            setError("ไม่สามารถดึงข้อมูลผู้ป่วยได้");
           }
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        setError("เกิดข้อผิดพลาดในการโหลดข้อมูล");
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [currentUser]);
+  }, [currentUser, API_URL]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex justify-center items-center">
         <p className="text-xl font-semibold">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+          <p className="text-red-700">{error}</p>
+          <p className="text-red-700 mt-2">
+            กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่
+          </p>
+        </div>
       </div>
     );
   }
@@ -285,14 +286,14 @@ const PatientDashboard = () => {
         </div>
       </div>
 
-      {/* บันทึกระดับน้ำตาลล่าสุด */}
+      {/* บันทึกระดับน้ำตาลล่าสุด - แก้ไขเป็น glucose_readings */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4">
           <BsDropletFill className="inline-block mr-2 text-indigo-600" />
           บันทึกระดับน้ำตาลล่าสุด
         </h2>
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {glucoseRecords && glucoseRecords.length > 0 ? (
+          {glucoseReadings && glucoseReadings.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -315,50 +316,50 @@ const PatientDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {glucoseRecords.map((record) => (
-                    <tr key={record.id}>
+                  {glucoseReadings.map((reading) => (
+                    <tr key={reading.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {format(new Date(record.record_date), "d MMMM yyyy", {
+                        {format(new Date(reading.reading_date), "d MMMM yyyy", {
                           locale: th,
                         })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {record.record_time}
+                        {reading.reading_time}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {record.period === "fasting"
+                        {reading.reading_type === "fasting"
                           ? "ก่อนอาหารเช้า (งดอาหาร)"
-                          : record.period === "before_breakfast"
+                          : reading.reading_type === "before_breakfast"
                           ? "ก่อนอาหารเช้า"
-                          : record.period === "after_breakfast"
+                          : reading.reading_type === "after_breakfast"
                           ? "หลังอาหารเช้า"
-                          : record.period === "before_lunch"
+                          : reading.reading_type === "before_lunch"
                           ? "ก่อนอาหารกลางวัน"
-                          : record.period === "after_lunch"
+                          : reading.reading_type === "after_lunch"
                           ? "หลังอาหารกลางวัน"
-                          : record.period === "before_dinner"
+                          : reading.reading_type === "before_dinner"
                           ? "ก่อนอาหารเย็น"
-                          : record.period === "after_dinner"
+                          : reading.reading_type === "after_dinner"
                           ? "หลังอาหารเย็น"
-                          : record.period === "bedtime"
+                          : reading.reading_type === "bedtime"
                           ? "ก่อนนอน"
-                          : "อื่นๆ"}
+                          : reading.reading_type}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                            record.glucose_level > 120
+                            reading.glucose_value > 120
                               ? "bg-red-100 text-red-800"
-                              : record.glucose_level < 70
+                              : reading.glucose_value < 70
                               ? "bg-yellow-100 text-yellow-800"
                               : "bg-green-100 text-green-800"
                           }`}
                         >
-                          {record.glucose_level}
+                          {reading.glucose_value}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {record.notes || "-"}
+                        {reading.notes || "-"}
                       </td>
                     </tr>
                   ))}
