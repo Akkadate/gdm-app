@@ -14,10 +14,11 @@ import {
   TimeScale,
 } from "chart.js";
 import { useAuth } from "../../contexts/AuthContext";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { th } from "date-fns/locale";
+import { API_URL } from "../../config"; // แก้ไขตรงนี้: Import API_URL จาก config
 
-// Register ChartJS components--xx
+// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -37,46 +38,51 @@ const PatientDashboard = () => {
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayReadings, setTodayReadings] = useState([]);
   const [patientInfo, setPatientInfo] = useState(null);
+  const [error, setError] = useState(null); // เพิ่ม state สำหรับเก็บข้อความ error
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        setError(null); // ล้างข้อความ error เมื่อเริ่มโหลดข้อมูลใหม่
 
-        // ดึงข้อมูลผู้ป่วย --
-        const patientResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL}/patients/me`
-        );
+        // Log API URL for debugging
+        console.log("API URL:", API_URL);
+
+        // ดึงข้อมูลผู้ป่วย
+        const patientResponse = await axios.get(`${API_URL}/patients/me`);
+        console.log("Patient data:", patientResponse.data);
         setPatientInfo(patientResponse.data);
 
         // ดึงข้อมูลค่าน้ำตาล 7 วันย้อนหลัง
+        const today = format(new Date(), "yyyy-MM-dd");
         const glucoseResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL}/glucose/stats?days=7`
+          `${API_URL}/glucose/stats?days=7`
         );
+        console.log("Glucose stats:", glucoseResponse.data);
         setGlucoseData(glucoseResponse.data);
 
         // ดึงข้อมูลการนัดหมายที่กำลังจะมาถึง
         const appointmentsResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL}/appointments?upcoming=true&limit=3`
+          `${API_URL}/appointments?upcoming=true&limit=3`
         );
+        console.log("Appointments:", appointmentsResponse.data);
         setLatestAppointments(appointmentsResponse.data);
 
         // ดึงข้อมูลน้ำหนักล่าสุด
-        const weightResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL}/weights/latest`
-        );
+        const weightResponse = await axios.get(`${API_URL}/weights/latest`);
+        console.log("Latest weight:", weightResponse.data);
         setLatestWeight(weightResponse.data);
 
         // ดึงข้อมูลค่าน้ำตาลวันนี้
         const todayReadingsResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL}/glucose?date=${format(
-            new Date(),
-            "yyyy-MM-dd"
-          )}`
+          `${API_URL}/glucose?date=${today}`
         );
+        console.log("Today's readings:", todayReadingsResponse.data);
         setTodayReadings(todayReadingsResponse.data);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        setError("ไม่สามารถโหลดข้อมูลได้ โปรดลองอีกครั้งในภายหลัง");
       } finally {
         setLoading(false);
       }
@@ -88,13 +94,14 @@ const PatientDashboard = () => {
   // เตรียมข้อมูลสำหรับแสดงกราฟค่าน้ำตาลย้อนหลัง
   const glucoseChartData = {
     labels:
-      glucoseData?.dailyAverage.map((item) =>
+      glucoseData?.dailyAverage?.map((item) =>
         format(new Date(item.reading_date), "d MMM", { locale: th })
       ) || [],
     datasets: [
       {
         label: "ค่าเฉลี่ยน้ำตาลในเลือด (mg/dL)",
-        data: glucoseData?.dailyAverage.map((item) => item.average_value) || [],
+        data:
+          glucoseData?.dailyAverage?.map((item) => item.average_value) || [],
         fill: false,
         backgroundColor: "rgba(75, 192, 192, 0.6)",
         borderColor: "rgba(75, 192, 192, 1)",
@@ -136,7 +143,7 @@ const PatientDashboard = () => {
 
   // คำนวณค่า BMI
   const calculateBMI = () => {
-    if (!patientInfo || !latestWeight) return null;
+    if (!patientInfo || !latestWeight || !patientInfo.height) return null;
 
     const heightInMeters = patientInfo.height / 100;
     const bmi = latestWeight.weight / (heightInMeters * heightInMeters);
@@ -151,10 +158,26 @@ const PatientDashboard = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <div className="text-center">
+          <p className="text-xl font-semibold text-red-500">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md"
+          >
+            ลองใหม่
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">
-        ยินดีต้อนรับ, คุณ{currentUser?.first_name}
+        ยินดีต้อนรับ, คุณ{currentUser?.first_name || "ผู้ใช้งาน"}
       </h1>
 
       {/* วันที่วันนี้ */}
@@ -169,7 +192,7 @@ const PatientDashboard = () => {
         {/* ค่าน้ำตาลวันนี้ */}
         <div className="bg-white rounded-lg shadow-md p-4">
           <h2 className="text-lg font-semibold mb-3">ค่าน้ำตาลวันนี้</h2>
-          {todayReadings.length > 0 ? (
+          {todayReadings && todayReadings.length > 0 ? (
             <div>
               <div className="grid grid-cols-2 gap-2">
                 {todayReadings.map((reading) => (
@@ -261,7 +284,7 @@ const PatientDashboard = () => {
           <h2 className="text-lg font-semibold mb-3">
             การนัดหมายที่กำลังจะมาถึง
           </h2>
-          {latestAppointments.length > 0 ? (
+          {latestAppointments && latestAppointments.length > 0 ? (
             <div>
               {latestAppointments.map((appointment) => (
                 <div key={appointment.id} className="mb-3 pb-3 border-b">
@@ -304,7 +327,9 @@ const PatientDashboard = () => {
       <div className="bg-white rounded-lg shadow-md p-4 mb-8">
         <h2 className="text-lg font-semibold mb-4">แนวโน้มค่าน้ำตาลในเลือด</h2>
         <div className="h-64">
-          {glucoseData?.dailyAverage?.length > 0 ? (
+          {glucoseData &&
+          glucoseData.dailyAverage &&
+          glucoseData.dailyAverage.length > 0 ? (
             <Line data={glucoseChartData} options={glucoseChartOptions} />
           ) : (
             <div className="flex justify-center items-center h-full">
