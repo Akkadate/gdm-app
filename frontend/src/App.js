@@ -39,6 +39,12 @@ import Reports from "./pages/nurse/Reports";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
+import AdminNurses from "./pages/admin/Nurses";
+import AdminPatients from "./pages/admin/Patients";
+import AdminUsers from "./pages/admin/Users";
+import AdminReports from "./pages/admin/Reports";
+import AdminSystem from "./pages/admin/System";
+import AdminSettings from "./pages/admin/Settings";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -143,7 +149,12 @@ function App() {
             }
           >
             <Route path="dashboard" element={<AdminDashboard />} />
-            {/* เพิ่ม Route อื่นๆ สำหรับ admin ที่นี่ */}
+            <Route path="nurses" element={<AdminNurses />} />
+            <Route path="patients" element={<AdminPatients />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="system" element={<AdminSystem />} />
+            <Route path="settings" element={<AdminSettings />} />
             <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
 
