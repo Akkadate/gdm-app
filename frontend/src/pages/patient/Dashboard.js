@@ -13,48 +13,89 @@ import {
 } from "react-icons/fa";
 import { BsDropletFill } from "react-icons/bs";
 import { GiMedicines } from "react-icons/gi";
-import { API_URL } from "../../config"; // ถ้ามีไฟล์ config
 
 const PatientDashboard = () => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [patientData, setPatientData] = useState(null);
+  const [patientId, setPatientId] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [glucoseRecords, setGlucoseRecords] = useState([]);
   const [medications, setMedications] = useState([]);
+
+  // ฟังก์ชันสำหรับดึงข้อมูล patient_id จาก user_id
+  const getPatientId = async (userId) => {
+    try {
+      // ใช้ endpoint /patients/by-user/:userId ที่เราสร้างขึ้นใหม่
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/patients/by-user/${userId}`
+      );
+      if (response.data) {
+        return response.data.id;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting patient ID:", error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
 
-        // ใช้ API endpoint ใหม่ที่เราสร้างขึ้น
         if (currentUser && currentUser.id) {
-          // ดึงข้อมูลผู้ป่วยโดยใช้ user_id
-          const patientResponse = await axios.get(
-            `${API_URL}/patients/by-user/${currentUser.id}`
-          );
+          // ขั้นตอนที่ 1: ดึง patient_id
+          const patientId = await getPatientId(currentUser.id);
 
-          if (patientResponse.data) {
-            setPatientData(patientResponse.data);
+          if (patientId) {
+            setPatientId(patientId);
 
-            // ดึงข้อมูลการนัดหมาย
+            // ขั้นตอนที่ 2: ดึงข้อมูลผู้ป่วย
+            const patientResponse = await axios.get(
+              `${process.env.REACT_APP_API_URL}/patients/by-user/${currentUser.id}`
+            );
+            if (patientResponse.data) {
+              setPatientData(patientResponse.data);
+            }
+
+            // ขั้นตอนที่ 3: ดึงข้อมูลการนัดหมาย (แก้ไขให้ใช้ endpoint ที่ถูกต้อง)
+            // ใช้ endpoint /appointments?upcoming=true&limit=5 ที่มีอยู่แล้ว
             const appointmentsResponse = await axios.get(
-              `${API_URL}/appointments/patient/${patientResponse.data.id}`
+              `${process.env.REACT_APP_API_URL}/appointments?upcoming=true&limit=5`
             );
-            setAppointments(appointmentsResponse.data);
+            if (appointmentsResponse.data) {
+              setAppointments(appointmentsResponse.data);
+            }
 
-            // ดึงข้อมูลระดับน้ำตาล
-            const glucoseResponse = await axios.get(
-              `${API_URL}/glucose-records/patient/${patientResponse.data.id}`
-            );
-            setGlucoseRecords(glucoseResponse.data);
+            // ขั้นตอนที่ 4: ดึงข้อมูลระดับน้ำตาล
+            // ตรวจสอบว่ามี endpoint นี้อยู่จริงหรือไม่
+            try {
+              const glucoseResponse = await axios.get(
+                `${process.env.REACT_APP_API_URL}/glucose-records?limit=5`
+              );
+              if (glucoseResponse.data) {
+                setGlucoseRecords(glucoseResponse.data);
+              }
+            } catch (error) {
+              console.error("Error fetching glucose records:", error);
+              setGlucoseRecords([]);
+            }
 
-            // ดึงข้อมูลการใช้ยา
-            const medicationsResponse = await axios.get(
-              `${API_URL}/medications/patient/${patientResponse.data.id}`
-            );
-            setMedications(medicationsResponse.data);
+            // ขั้นตอนที่ 5: ดึงข้อมูลการใช้ยา
+            // ตรวจสอบว่ามี endpoint นี้อยู่จริงหรือไม่
+            try {
+              const medicationsResponse = await axios.get(
+                `${process.env.REACT_APP_API_URL}/medications?active=true`
+              );
+              if (medicationsResponse.data) {
+                setMedications(medicationsResponse.data);
+              }
+            } catch (error) {
+              console.error("Error fetching medications:", error);
+              setMedications([]);
+            }
           }
         }
       } catch (error) {
@@ -71,6 +112,19 @@ const PatientDashboard = () => {
     return (
       <div className="min-h-screen flex justify-center items-center">
         <p className="text-xl font-semibold">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
+
+  // แสดงข้อความถ้าไม่พบข้อมูลผู้ป่วย
+  if (!patientData) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <p className="text-yellow-700">
+            ไม่พบข้อมูลผู้ป่วย กรุณาติดต่อเจ้าหน้าที่เพื่อลงทะเบียนข้อมูลผู้ป่วย
+          </p>
+        </div>
       </div>
     );
   }
@@ -186,13 +240,13 @@ const PatientDashboard = () => {
                       เวลา
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      แพทย์/พยาบาล
+                      ประเภท
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      สถานที่
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       หมายเหตุ
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      สถานะ
                     </th>
                   </tr>
                 </thead>
@@ -210,31 +264,13 @@ const PatientDashboard = () => {
                         {appointment.appointment_time}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {appointment.provider_name}
+                        {appointment.appointment_type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {appointment.location || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {appointment.notes || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            appointment.status === "scheduled"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : appointment.status === "completed"
-                              ? "bg-green-100 text-green-800"
-                              : appointment.status === "cancelled"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {appointment.status === "scheduled"
-                            ? "นัดหมาย"
-                            : appointment.status === "completed"
-                            ? "เสร็จสิ้น"
-                            : appointment.status === "cancelled"
-                            ? "ยกเลิก"
-                            : appointment.status}
-                        </span>
                       </td>
                     </tr>
                   ))}
