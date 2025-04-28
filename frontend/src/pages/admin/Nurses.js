@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { FaUserNurse, FaEdit, FaTrash, FaPlus, FaSearch } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { API_URL } from '../../config';
 
 const Nurses = () => {
   const [nurses, setNurses] = useState([]);
@@ -11,100 +12,67 @@ const Nurses = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchNurses = async () => {
-      try {
-        setLoading(true);
-        // ในระบบจริงควรมี API endpoint สำหรับดึงข้อมูลพยาบาล
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/users?role=nurse`);
-        setNurses(response.data || []);
-      } catch (error) {
-        console.error('Error fetching nurses data:', error);
-        // กรณีไม่มี API สำหรับข้อมูลนี้ยังคงแสดงข้อมูลตัวอย่าง
-        setNurses([
-          { 
-            id: 1, 
-            hospital_id: 'N001', 
-            first_name: 'สมศรี', 
-            last_name: 'มีใจดี', 
-            phone: '081-234-5678', 
-            is_active: true,
-            patient_count: 15,
-            created_at: '2023-01-15'
-          },
-          { 
-            id: 2, 
-            hospital_id: 'N002', 
-            first_name: 'วิมล', 
-            last_name: 'ใจดีมาก', 
-            phone: '082-345-6789', 
-            is_active: true,
-            patient_count: 12,
-            created_at: '2023-02-20'
-          },
-          { 
-            id: 3, 
-            hospital_id: 'N003', 
-            first_name: 'นิภา', 
-            last_name: 'รักการดูแล', 
-            phone: '083-456-7890', 
-            is_active: true,
-            patient_count: 10,
-            created_at: '2023-03-10'
-          },
-          { 
-            id: 4, 
-            hospital_id: 'N004', 
-            first_name: 'จินดา', 
-            last_name: 'ใจหวาน', 
-            phone: '084-567-8901', 
-            is_active: true,
-            patient_count: 8,
-            created_at: '2023-05-05'
-          },
-          { 
-            id: 5, 
-            hospital_id: 'N005', 
-            first_name: 'สุพรรณี', 
-            last_name: 'แสนดี', 
-            phone: '085-678-9012', 
-            is_active: false,
-            patient_count: 0,
-            created_at: '2023-06-15'
-          }
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchNurses();
   }, []);
 
-  // ฟังก์ชั่นสำหรับการลบพยาบาล
+  // ฟังก์ชันดึงข้อมูลพยาบาลจาก API
+  const fetchNurses = async () => {
+    try {
+      setLoading(true);
+      // เรียกใช้ API จริง
+      const response = await axios.get(`${API_URL}/users?role=nurse`);
+      
+      // จัดรูปแบบข้อมูลให้สอดคล้องกับการใช้งาน
+      const formattedNurses = response.data.map(nurse => {
+        // ตรวจสอบและกำหนดค่า patient_count หากไม่มีในข้อมูลจาก API
+        if (!nurse.patient_count && nurse.patient_count !== 0) {
+          // หากไม่มีข้อมูล patient_count ให้ดึงจาก endpoints อื่น
+          // หรือกำหนดเป็น 0 ไปก่อน ให้สอดคล้องกับโครงสร้างเดิม
+          nurse.patient_count = 0;
+        }
+        
+        return nurse;
+      });
+      
+      setNurses(formattedNurses);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching nurses data:', err);
+      setError('ไม่สามารถดึงข้อมูลพยาบาลได้');
+      toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลพยาบาล');
+      // กรณีเกิดข้อผิดพลาด ให้ใช้ข้อมูลตัวอย่างแทน (เพื่อให้ UI ยังใช้งานได้)
+      setNurses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ฟังก์ชันสำหรับการลบพยาบาล
   const handleDelete = async (id) => {
     if (window.confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลพยาบาลคนนี้?')) {
       try {
-        // ในระบบจริงควรส่งคำขอไปยัง API
-        // await axios.delete(`${process.env.REACT_APP_API_URL}/users/${id}`);
+        // เรียกใช้ API จริง
+        await axios.delete(`${API_URL}/users/${id}`);
         
         // อัปเดตข้อมูลในสถานะ
         setNurses(nurses.filter(nurse => nurse.id !== id));
         toast.success('ลบข้อมูลพยาบาลสำเร็จ');
       } catch (error) {
         console.error('Error deleting nurse:', error);
-        toast.error('เกิดข้อผิดพลาดในการลบข้อมูล');
+        toast.error('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (error.response?.data?.message || 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'));
       }
     }
   };
 
   // การกรองข้อมูลตามการค้นหา
   const filteredNurses = nurses.filter(nurse => 
-    nurse.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    nurse.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    nurse.hospital_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    nurse.phone.includes(searchTerm)
+    (nurse.first_name && nurse.first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (nurse.last_name && nurse.last_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (nurse.hospital_id && nurse.hospital_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (nurse.phone && nurse.phone.includes(searchTerm))
   );
 
   // คำนวณ pagination
@@ -130,6 +98,14 @@ const Nurses = () => {
         <h1 className="text-2xl font-bold mb-2">จัดการพยาบาล</h1>
         <p className="text-gray-600">จัดการข้อมูลพยาบาลในระบบ</p>
       </div>
+
+      {/* แสดงข้อความเมื่อเกิดข้อผิดพลาด */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">เกิดข้อผิดพลาด</p>
+          <p>{error}</p>
+        </div>
+      )}
 
       {/* ส่วนของการค้นหาและปุ่มเพิ่มพยาบาล */}
       <div className="flex flex-col md:flex-row justify-between mb-6">
@@ -180,7 +156,7 @@ const Nurses = () => {
                     {nurse.first_name} {nurse.last_name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{nurse.phone}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{nurse.patient_count} คน</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{nurse.patient_count || 0} คน</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       nurse.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -189,7 +165,7 @@ const Nurses = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {new Date(nurse.created_at).toLocaleDateString('th-TH')}
+                    {nurse.created_at ? new Date(nurse.created_at).toLocaleDateString('th-TH') : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex space-x-2">
@@ -212,7 +188,7 @@ const Nurses = () => {
               {currentNurses.length === 0 && (
                 <tr>
                   <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                    ไม่พบข้อมูลพยาบาลที่ตรงกับการค้นหา
+                    {error ? 'เกิดข้อผิดพลาดในการดึงข้อมูล' : 'ไม่พบข้อมูลพยาบาลที่ตรงกับการค้นหา'}
                   </td>
                 </tr>
               )}

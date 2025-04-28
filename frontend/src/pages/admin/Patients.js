@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { FaUserInjured, FaEdit, FaEye, FaSearch, FaSortAmountDown, FaSortAmountDownAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { API_URL } from '../../config';
 
 const Patients = () => {
   const [patients, setPatients] = useState([]);
@@ -13,89 +14,58 @@ const Patients = () => {
   const [itemsPerPage] = useState(10);
   const [sortField, setSortField] = useState('hospital_id');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchPatients = async () => {
-      try {
-        setLoading(true);
-        // ในระบบจริงควรมี API endpoint สำหรับดึงข้อมูลผู้ป่วย
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/patients`);
-        setPatients(response.data || []);
-      } catch (error) {
-        console.error('Error fetching patients data:', error);
-        // กรณีไม่มี API สำหรับข้อมูลนี้ยังคงแสดงข้อมูลตัวอย่าง
-        setPatients([
-          { 
-            id: 1, 
-            hospital_id: 'P001', 
-            first_name: 'สมหญิง', 
-            last_name: 'ใจดี', 
-            phone: '081-111-1111',
-            date_of_birth: '1990-05-15',
-            gestational_age: 24,
-            expected_delivery_date: '2025-08-10',
-            assigned_nurse_name: 'สมศรี มีใจดี',
-            status: 'active'
-          },
-          { 
-            id: 2, 
-            hospital_id: 'P002', 
-            first_name: 'วรรณา', 
-            last_name: 'สุขใจ', 
-            phone: '082-222-2222',
-            date_of_birth: '1988-02-20',
-            gestational_age: 18,
-            expected_delivery_date: '2025-09-25',
-            assigned_nurse_name: 'วิมล ใจดีมาก',
-            status: 'active'
-          },
-          { 
-            id: 3, 
-            hospital_id: 'P003', 
-            first_name: 'ศิริพร', 
-            last_name: 'ดีงาม', 
-            phone: '083-333-3333',
-            date_of_birth: '1992-07-10',
-            gestational_age: 30,
-            expected_delivery_date: '2025-06-15',
-            assigned_nurse_name: 'สมศรี มีใจดี',
-            status: 'active'
-          },
-          { 
-            id: 4, 
-            hospital_id: 'P004', 
-            first_name: 'นุชนาถ', 
-            last_name: 'พรมมา', 
-            phone: '084-444-4444',
-            date_of_birth: '1985-11-30',
-            gestational_age: 22,
-            expected_delivery_date: '2025-08-25',
-            assigned_nurse_name: 'นิภา รักการดูแล',
-            status: 'active'
-          },
-          { 
-            id: 5, 
-            hospital_id: 'P005', 
-            first_name: 'กรรณิการ์', 
-            last_name: 'มณีรัตน์', 
-            phone: '085-555-5555',
-            date_of_birth: '1993-03-25',
-            gestational_age: 16,
-            expected_delivery_date: '2025-10-05',
-            assigned_nurse_name: 'จินดา ใจหวาน',
-            status: 'inactive'
-          }
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchPatients();
   }, []);
 
+  // ฟังก์ชันดึงข้อมูลผู้ป่วยจาก API
+  const fetchPatients = async () => {
+    try {
+      setLoading(true);
+      // เรียกใช้ API จริง
+      const response = await axios.get(`${API_URL}/patients`);
+      
+      if (response.data && Array.isArray(response.data)) {
+        // แปลงข้อมูลให้เข้ากับรูปแบบที่ใช้ในหน้า UI
+        const formattedPatients = response.data.map(patient => {
+          // หากมีการใช้ชื่อฟิลด์ที่แตกต่างกัน
+          return {
+            id: patient.id,
+            hospital_id: patient.hospital_id || '',
+            first_name: patient.first_name || '',
+            last_name: patient.last_name || '',
+            phone: patient.phone || '',
+            date_of_birth: patient.date_of_birth || null,
+            gestational_age: patient.gestational_age_at_diagnosis || null,
+            expected_delivery_date: patient.expected_delivery_date || null,
+            assigned_nurse_name: patient.nurse_first_name 
+              ? `${patient.nurse_first_name} ${patient.nurse_last_name || ''}` 
+              : 'ไม่ระบุ',
+            status: patient.is_active ? 'active' : 'inactive'
+          };
+        });
+        
+        setPatients(formattedPatients);
+        setError(null);
+      } else {
+        throw new Error("ข้อมูลที่ได้รับไม่ถูกต้อง");
+      }
+    } catch (err) {
+      console.error('Error fetching patients data:', err);
+      setError('ไม่สามารถดึงข้อมูลผู้ป่วยได้');
+      toast.error('เกิดข้อผิดพลาดในการดึงข้อมูลผู้ป่วย: ' + (err.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'));
+      setPatients([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // คำนวณอายุจากวันเกิด
   const calculateAge = (dob) => {
+    if (!dob) return 'ไม่ระบุ';
+    
     const today = new Date();
     const birthDate = new Date(dob);
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -116,10 +86,10 @@ const Patients = () => {
   // การกรองและเรียงลำดับข้อมูลตามการค้นหาและการเรียง
   const filteredAndSortedPatients = patients
     .filter(patient => 
-      patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.hospital_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.phone.includes(searchTerm)
+      (patient.first_name && patient.first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (patient.last_name && patient.last_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (patient.hospital_id && patient.hospital_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (patient.phone && patient.phone.includes(searchTerm))
     )
     .sort((a, b) => {
       let valueA, valueB;
@@ -127,24 +97,24 @@ const Patients = () => {
       // กำหนดค่าที่จะใช้เปรียบเทียบตามฟิลด์ที่เลือก
       switch (sortField) {
         case 'hospital_id':
-          valueA = a.hospital_id;
-          valueB = b.hospital_id;
+          valueA = a.hospital_id || '';
+          valueB = b.hospital_id || '';
           break;
         case 'name':
-          valueA = a.first_name + ' ' + a.last_name;
-          valueB = b.first_name + ' ' + b.last_name;
+          valueA = `${a.first_name || ''} ${a.last_name || ''}`;
+          valueB = `${b.first_name || ''} ${b.last_name || ''}`;
           break;
         case 'gestational_age':
-          valueA = a.gestational_age;
-          valueB = b.gestational_age;
+          valueA = a.gestational_age || 0;
+          valueB = b.gestational_age || 0;
           break;
         case 'expected_delivery_date':
-          valueA = new Date(a.expected_delivery_date);
-          valueB = new Date(b.expected_delivery_date);
+          valueA = a.expected_delivery_date ? new Date(a.expected_delivery_date) : new Date(0);
+          valueB = b.expected_delivery_date ? new Date(b.expected_delivery_date) : new Date(0);
           break;
         default:
-          valueA = a[sortField];
-          valueB = b[sortField];
+          valueA = a[sortField] || '';
+          valueB = b[sortField] || '';
       }
       
       // เรียงลำดับ
@@ -182,6 +152,14 @@ const Patients = () => {
         <h1 className="text-2xl font-bold mb-2">จัดการผู้ป่วย</h1>
         <p className="text-gray-600">จัดการข้อมูลผู้ป่วยทั้งหมดในระบบ</p>
       </div>
+
+      {/* แสดงข้อความเมื่อเกิดข้อผิดพลาด */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">เกิดข้อผิดพลาด</p>
+          <p>{error}</p>
+        </div>
+      )}
 
       {/* ส่วนของการค้นหา */}
       <div className="mb-6">
@@ -249,10 +227,12 @@ const Patients = () => {
                     {calculateAge(patient.date_of_birth)} ปี
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {patient.gestational_age}
+                    {patient.gestational_age || 'ไม่ระบุ'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {new Date(patient.expected_delivery_date).toLocaleDateString('th-TH')}
+                    {patient.expected_delivery_date 
+                      ? new Date(patient.expected_delivery_date).toLocaleDateString('th-TH')
+                      : 'ไม่ระบุ'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {patient.assigned_nurse_name}
@@ -287,7 +267,7 @@ const Patients = () => {
               {currentPatients.length === 0 && (
                 <tr>
                   <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
-                    ไม่พบข้อมูลผู้ป่วยที่ตรงกับการค้นหา
+                    {error ? 'เกิดข้อผิดพลาดในการดึงข้อมูล' : 'ไม่พบข้อมูลผู้ป่วยที่ตรงกับการค้นหา'}
                   </td>
                 </tr>
               )}
