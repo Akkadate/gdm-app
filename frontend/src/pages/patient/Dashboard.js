@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
 import {
@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { API_URL } from "../../config"; // แก้ไขตรงนี้: Import API_URL จาก config
+import { API_URL } from "../../config";
 
 // Register ChartJS components
 ChartJS.register(
@@ -31,65 +31,132 @@ ChartJS.register(
 );
 
 const PatientDashboard = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [glucoseData, setGlucoseData] = useState(null);
   const [latestAppointments, setLatestAppointments] = useState([]);
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayReadings, setTodayReadings] = useState([]);
   const [patientInfo, setPatientInfo] = useState(null);
-  const [error, setError] = useState(null); // เพิ่ม state สำหรับเก็บข้อความ error
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null); // ล้างข้อความ error เมื่อเริ่มโหลดข้อมูลใหม่
+        setError(null);
 
-        // Log API URL for debugging
-        console.log("API URL:", API_URL);
+        // 1. ตรวจสอบว่ามี token ใน localStorage หรือไม่
+        const token = localStorage.getItem("token");
 
-        // ดึงข้อมูลผู้ป่วย
+        if (!token) {
+          console.error("No authentication token found");
+          setError("ไม่พบข้อมูลการยืนยันตัวตน กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+          return;
+        }
+
+        // 2. ตั้งค่า Authorization header สำหรับทุก request
+        axios.defaults.headers.common["x-auth-token"] = token;
+
+        // 3. ดึงข้อมูลผู้ป่วย
+        console.log("Fetching patient data...");
         const patientResponse = await axios.get(`${API_URL}/patients/me`);
         console.log("Patient data:", patientResponse.data);
         setPatientInfo(patientResponse.data);
 
-        // ดึงข้อมูลค่าน้ำตาล 7 วันย้อนหลัง
+        // 4. ดึงข้อมูลอื่นๆ หลังจากได้ข้อมูลผู้ป่วยแล้ว
         const today = format(new Date(), "yyyy-MM-dd");
+
+        // ดึงข้อมูลค่าน้ำตาล 7 วันย้อนหลัง
         const glucoseResponse = await axios.get(
           `${API_URL}/glucose/stats?days=7`
         );
-        console.log("Glucose stats:", glucoseResponse.data);
         setGlucoseData(glucoseResponse.data);
 
         // ดึงข้อมูลการนัดหมายที่กำลังจะมาถึง
         const appointmentsResponse = await axios.get(
           `${API_URL}/appointments?upcoming=true&limit=3`
         );
-        console.log("Appointments:", appointmentsResponse.data);
         setLatestAppointments(appointmentsResponse.data);
 
         // ดึงข้อมูลน้ำหนักล่าสุด
         const weightResponse = await axios.get(`${API_URL}/weights/latest`);
-        console.log("Latest weight:", weightResponse.data);
         setLatestWeight(weightResponse.data);
 
         // ดึงข้อมูลค่าน้ำตาลวันนี้
         const todayReadingsResponse = await axios.get(
           `${API_URL}/glucose?date=${today}`
         );
-        console.log("Today's readings:", todayReadingsResponse.data);
         setTodayReadings(todayReadingsResponse.data);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-        setError("ไม่สามารถโหลดข้อมูลได้ โปรดลองอีกครั้งในภายหลัง");
+
+        if (error.response) {
+          console.error("Response status:", error.response.status);
+          console.error("Response data:", error.response.data);
+
+          if (error.response.status === 403) {
+            setError(
+              "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง"
+            );
+            // อาจเป็นปัญหาเกี่ยวกับสิทธิ์ ให้ logout เพื่อให้ผู้ใช้เข้าสู่ระบบใหม่
+            setTimeout(() => {
+              logout();
+              navigate("/login");
+            }, 3000);
+          } else if (error.response.status === 401) {
+            setError("การยืนยันตัวตนหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+            // Token หมดอายุ ให้ logout
+            setTimeout(() => {
+              logout();
+              navigate("/login");
+            }, 3000);
+          } else {
+            setError(
+              `เกิดข้อผิดพลาด: ${
+                error.response.data.message || "ไม่สามารถโหลดข้อมูลได้"
+              }`
+            );
+          }
+        } else if (error.request) {
+          // ไม่ได้รับการตอบกลับจาก server
+          setError(
+            "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อของคุณ"
+          );
+        } else {
+          setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [logout, navigate]);
+
+  // คำนวณค่า BMI
+  const calculateBMI = () => {
+    if (!patientInfo || !latestWeight || !patientInfo.height) return null;
+
+    const heightInMeters = patientInfo.height / 100;
+    const bmi = latestWeight.weight / (heightInMeters * heightInMeters);
+    return bmi.toFixed(1);
+  };
+
+  // แปลงประเภทการตรวจเป็นภาษาไทย
+  const translateReadingType = (type) => {
+    const typeMap = {
+      before_breakfast: "ก่อนอาหารเช้า",
+      after_breakfast: "หลังอาหารเช้า",
+      before_lunch: "ก่อนอาหารกลางวัน",
+      after_lunch: "หลังอาหารกลางวัน",
+      before_dinner: "ก่อนอาหารเย็น",
+      after_dinner: "หลังอาหารเย็น",
+      bedtime: "ก่อนนอน",
+    };
+    return typeMap[type] || type;
+  };
 
   // เตรียมข้อมูลสำหรับแสดงกราฟค่าน้ำตาลย้อนหลัง
   const glucoseChartData = {
@@ -127,29 +194,6 @@ const PatientDashboard = () => {
     },
   };
 
-  // แปลงประเภทการตรวจเป็นภาษาไทย
-  const translateReadingType = (type) => {
-    const typeMap = {
-      before_breakfast: "ก่อนอาหารเช้า",
-      after_breakfast: "หลังอาหารเช้า",
-      before_lunch: "ก่อนอาหารกลางวัน",
-      after_lunch: "หลังอาหารกลางวัน",
-      before_dinner: "ก่อนอาหารเย็น",
-      after_dinner: "หลังอาหารเย็น",
-      bedtime: "ก่อนนอน",
-    };
-    return typeMap[type] || type;
-  };
-
-  // คำนวณค่า BMI
-  const calculateBMI = () => {
-    if (!patientInfo || !latestWeight || !patientInfo.height) return null;
-
-    const heightInMeters = patientInfo.height / 100;
-    const bmi = latestWeight.weight / (heightInMeters * heightInMeters);
-    return bmi.toFixed(1);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex justify-center items-center">
@@ -161,14 +205,22 @@ const PatientDashboard = () => {
   if (error) {
     return (
       <div className="min-h-screen flex justify-center items-center">
-        <div className="text-center">
-          <p className="text-xl font-semibold text-red-500">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md"
-          >
-            ลองใหม่
-          </button>
+        <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md">
+          <p className="text-xl font-semibold text-red-500 mb-4">{error}</p>
+          <div className="mt-4 flex justify-center space-x-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+            >
+              ลองใหม่
+            </button>
+            <Link
+              to="/login"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              เข้าสู่ระบบใหม่
+            </Link>
+          </div>
         </div>
       </div>
     );
