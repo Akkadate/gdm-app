@@ -21,7 +21,6 @@ const Patients = () => {
   }, []);
 
   // ฟังก์ชันดึงข้อมูลผู้ป่วยจาก API
-  // ฟังก์ชันดึงข้อมูลผู้ป่วยจาก API
   const fetchPatients = async () => {
     try {
       setLoading(true);
