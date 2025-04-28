@@ -57,14 +57,14 @@ const PatientDashboard = () => {
                 setAppointments([]);
               }
 
-              // ขั้นตอนที่ 3: ดึงข้อมูลระดับน้ำตาล - ใช้ glucose_readings แทน glucose_records
+              // ขั้นตอนที่ 3: ดึงข้อมูลระดับน้ำตาล - ใช้ /glucose แทนที่จะเป็น /glucose-readings หรือ /glucose-records
               try {
                 const glucoseResponse = await axios.get(
-                  `${API_URL}/glucose-readings?limit=5`
+                  `${API_URL}/glucose?limit=5`
                 );
                 setGlucoseReadings(glucoseResponse.data || []);
               } catch (glucoseError) {
-                console.error("Error fetching glucose readings:", glucoseError);
+                console.error("Error fetching glucose data:", glucoseError);
                 setGlucoseReadings([]);
               }
 
