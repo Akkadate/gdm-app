@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 // Layouts
 import PatientLayout from "./layouts/PatientLayout";
 import NurseLayout from "./layouts/NurseLayout";
+import AdminLayout from "./layouts/AdminLayout";
 
 // Auth Pages
 import Login from "./pages/auth/Login";
@@ -37,7 +38,6 @@ import TreatmentPlan from "./pages/nurse/TreatmentPlan";
 import Reports from "./pages/nurse/Reports";
 
 // Admin Pages
-import AdminLayout from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 
 // Protected Route Component
@@ -63,8 +63,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     // ถ้าไม่มีสิทธิ์ ให้ redirect ไปยังหน้าที่เหมาะสมตามบทบาท
     if (currentUser.role === "patient") {
       return <Navigate to="/patient/dashboard" replace />;
-    } else if (currentUser.role === "nurse" || currentUser.role === "admin") {
+    } else if (currentUser.role === "nurse") {
       return <Navigate to="/nurse/dashboard" replace />;
+    } else if (currentUser.role === "admin") {
+      return <Navigate to="/admin/dashboard" replace />;
     } else {
       return <Navigate to="/" replace />;
     }
@@ -131,21 +133,19 @@ function App() {
             }
           />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route path="dashboard" element={<AdminDashboard />} />
-          {/* เพิ่ม Route อื่นๆ สำหรับ admin */}
-
-        {/*  <Route path="" element={<Navigate to="/admin/dashboard" replace />} /> */}
-     
-       
+          {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<AdminDashboard />} />
+            {/* เพิ่ม Route อื่นๆ สำหรับ admin ที่นี่ */}
+            <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+          </Route>
 
           {/* Patient Routes */}
           <Route
