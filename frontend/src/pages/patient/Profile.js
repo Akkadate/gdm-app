@@ -77,8 +77,12 @@ const Profile = () => {
   // บันทึกการแก้ไขข้อมูลส่วนตัว
  // แก้ไขฟังก์ชัน handleProfileUpdate ใน frontend/src/pages/patient/Profile.js
 const handleProfileUpdate = async (values, { setSubmitting }) => {
+
+  console.log("Profile update started with values:", values);
+
   try {
     // อัปเดตข้อมูลผู้ใช้
+    console.log("Updating user info...");
     await axios.put(
       `${process.env.REACT_APP_API_URL}/users/${currentUser.id}`,
       {
@@ -88,6 +92,8 @@ const handleProfileUpdate = async (values, { setSubmitting }) => {
       }
     );
 
+    console.log("User info updated successfully");
+    
     // อัปเดตข้อมูลผู้ป่วย (ถ้ามี)
     if (patientData) {
       // แก้ไขส่วนนี้: ควรส่งข้อมูลที่ถูกต้องและตรงตามที่ API คาดหวัง
