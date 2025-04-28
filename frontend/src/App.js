@@ -36,6 +36,10 @@ import PatientGlucose from "./pages/nurse/PatientGlucose";
 import TreatmentPlan from "./pages/nurse/TreatmentPlan";
 import Reports from "./pages/nurse/Reports";
 
+// Admin Pages
+import AdminLayout from "./layouts/AdminLayout";
+import AdminDashboard from "./pages/admin/Dashboard";
+
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, currentUser, loading } = useAuth();
@@ -82,12 +86,14 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  // ถ้าล็อกอินแล้ว ให้ redirect ไปหน้าที่เหมาะสม
+  // ปรับใน PublicRoute
   if (isAuthenticated) {
     if (currentUser.role === "patient") {
       return <Navigate to="/patient/dashboard" replace />;
-    } else if (currentUser.role === "nurse" || currentUser.role === "admin") {
+    } else if (currentUser.role === "nurse") {
       return <Navigate to="/nurse/dashboard" replace />;
+    } else if (currentUser.role === "admin") {
+      return <Navigate to="/admin/dashboard" replace />;
     }
   }
 
@@ -124,6 +130,22 @@ function App() {
               </PublicRoute>
             }
           />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="dashboard" element={<AdminDashboard />} />
+          {/* เพิ่ม Route อื่นๆ สำหรับ admin */}
+
+        {/*  <Route path="" element={<Navigate to="/admin/dashboard" replace />} /> */}
+     
+       
 
           {/* Patient Routes */}
           <Route
