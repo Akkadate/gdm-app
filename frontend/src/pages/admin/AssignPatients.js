@@ -25,7 +25,7 @@ const AssignPatients = () => {
   // ดึงข้อมูลพยาบาลทั้งหมด
   const fetchNurses = async () => {
     try {
-      const response = await axios.get('/api/users/roles/nurses');
+      const response = await axios.get('/users/roles/nurses');
       setNurses(response.data);
     } catch (error) {
       console.error('Error fetching nurses:', error);
@@ -37,7 +37,7 @@ const AssignPatients = () => {
   const fetchUnassignedPatients = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/patients/unassigned');
+      const response = await axios.get('/patients/unassigned');
       setUnassignedPatients(response.data);
       setPatients(response.data);
     } catch (error) {
@@ -52,7 +52,7 @@ const AssignPatients = () => {
   const fetchPatientsByNurse = async (nurseId) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/patients/by-nurse/${nurseId}`);
+      const response = await axios.get(`/patients/by-nurse/${nurseId}`);
       setPatients(response.data);
     } catch (error) {
       console.error('Error fetching patients by nurse:', error);
@@ -117,7 +117,7 @@ const AssignPatients = () => {
 
     try {
       setLoading(true);
-      await axios.post('/api/patients/batch-assign', {
+      await axios.post('/patients/batch-assign', {
         nurse_id: selectedNurse,
         patient_ids: selectedPatients
       });
@@ -152,7 +152,7 @@ const AssignPatients = () => {
       
       // ยกเลิกทีละคน
       for (const patientId of selectedPatients) {
-        await axios.put(`/api/patients/${patientId}/remove-nurse`);
+        await axios.put(`/patients/${patientId}/remove-nurse`);
       }
 
       showToast(`ยกเลิกการกำหนดพยาบาลให้ผู้ป่วยจำนวน ${selectedPatients.length} คนเรียบร้อยแล้ว`, 'success');
