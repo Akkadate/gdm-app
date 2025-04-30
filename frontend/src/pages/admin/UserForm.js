@@ -8,6 +8,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FaUser, FaSave, FaArrowLeft } from 'react-icons/fa';
 import { API_URL } from '../../config';
+import { useAuth } from '../../contexts/AuthContext';
 import DatePicker from 'react-datepicker'; // เพิ่ม import
 import 'react-datepicker/dist/react-datepicker.css'; // เพิ่ม import CSS
 
@@ -46,6 +47,7 @@ const UserSchema = Yup.object().shape({
 });
 
 const UserForm = ({ view = false }) => {
+  const { register } = useAuth(); // เพิ่มการใช้ useAuth hook
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -140,127 +142,138 @@ const UserForm = ({ view = false }) => {
   // บันทึกข้อมูลผู้ใช้
   // ส่วนของฟังก์ชัน handleSubmit ที่ปรับปรุงแล้ว
 const handleSubmit = async (values, { setSubmitting }) => {
-  // ตรวจสอบว่าเลือกบทบาทเป็นผู้ป่วยหรือไม่
-  const isPatient = values.role_id === 3 || values.role_id === '3';
-  
-  // ถ้าเป็นผู้ป่วยและไม่มีวันเกิด
-  if (isPatient && !birthDate) {
-    setBirthDateError('กรุณาระบุวันเกิด');
-    setSubmitting(false);
-    return;
-  } else {
-    setBirthDateError('');
-  }
-  
-  try {
-    setLoading(true);
+    // ตรวจสอบว่าเลือกบทบาทเป็นผู้ป่วยหรือไม่
+    const isPatient = values.role_id === 3 || values.role_id === '3';
     
-    // เตรียมข้อมูลสำหรับส่งไป API
-    const userData = {
-      hospital_id: values.hospital_id,
-      first_name: values.first_name,
-      last_name: values.last_name,
-      phone: values.phone,
-      password: values.password || '', // ส่งรหัสผ่านเสมอ (ว่างได้ในกรณีแก้ไข)
-    };
-
-    // กรณีเป็นผู้ป่วย ให้เพิ่มวันเกิดเข้าไปใน request
-    if (isPatient && birthDate) {
-      userData.date_of_birth = birthDate.toISOString().split('T')[0];
+    // ถ้าเป็นผู้ป่วยและไม่มีวันเกิด
+    if (isPatient && !birthDate) {
+      setBirthDateError('กรุณาระบุวันเกิด');
+      setSubmitting(false);
+      return;
+    } else {
+      setBirthDateError('');
     }
     
-    // ถ้าไม่ใช่ผู้ป่วย จึงส่ง role_id และ is_active
-    if (!isPatient) {
-      userData.role_id = values.role_id;
-      userData.is_active = values.is_active;
-    }
-    
-    let response;
-    if (id) {
-      // อัปเดตผู้ใช้
-      if (isPatient) {
-        // กรณีเป็นผู้ป่วย ไม่ส่ง role_id ในการอัปเดต แต่ส่ง date_of_birth แทน
-        // ส่วนข้อมูลที่เกี่ยวกับผู้ป่วยจะจัดการในขั้นตอนถัดไป
-        response = await axios.put(`${API_URL}/users/${id}`, {
-          hospital_id: values.hospital_id,
-          first_name: values.first_name,
-          last_name: values.last_name,
-          phone: values.phone,
-          is_active: values.is_active,
-          password: values.password || undefined // ส่งเฉพาะเมื่อมีการกรอก
-        });
-        
-        // อัปเดตหรือสร้างข้อมูลในตาราง patients
-        try {
-          // ตรวจสอบว่ามีข้อมูลในตาราง patients หรือไม่
-          const patientCheckResponse = await axios.get(`${API_URL}/patients/by-user/${id}`);
+    try {
+      setLoading(true);
+      
+      if (id) {
+        // *** กรณีแก้ไขข้อมูลผู้ใช้ ***
+        // ใช้ axios เหมือนเดิม
+        if (isPatient) {
+          // กรณีเป็นผู้ป่วย
+          const response = await axios.put(`${API_URL}/users/${id}`, {
+            hospital_id: values.hospital_id,
+            first_name: values.first_name,
+            last_name: values.last_name,
+            phone: values.phone,
+            is_active: values.is_active,
+            password: values.password || undefined
+          });
           
-          // แปลงวันเดือนปีเกิดให้อยู่ในรูปแบบ YYYY-MM-DD
-          const formattedBirthDate = birthDate.toISOString().split('T')[0];
-          
-          if (patientCheckResponse.data) {
-            // อัปเดตข้อมูลผู้ป่วย
-            await axios.put(`${API_URL}/patients/${patientCheckResponse.data.id}`, {
-              date_of_birth: formattedBirthDate
-            });
-          } else {
-            // สร้างข้อมูลผู้ป่วยใหม่
-            await axios.post(`${API_URL}/patients`, {
-              user_id: id,
-              date_of_birth: formattedBirthDate
-            });
-          }
-        } catch (error) {
-          // ถ้าไม่พบข้อมูลผู้ป่วย ให้สร้างใหม่
-          if (error.response && error.response.status === 404) {
+          // อัปเดตหรือสร้างข้อมูลในตาราง patients
+          try {
+            // ตรวจสอบว่ามีข้อมูลในตาราง patients หรือไม่
+            const patientCheckResponse = await axios.get(`${API_URL}/patients/by-user/${id}`);
+            
+            // แปลงวันเดือนปีเกิดให้อยู่ในรูปแบบ YYYY-MM-DD
             const formattedBirthDate = birthDate.toISOString().split('T')[0];
-            await axios.post(`${API_URL}/patients`, {
-              user_id: id,
-              date_of_birth: formattedBirthDate
-            });
-          } else {
-            console.error('Error updating patient data:', error);
-            throw error; // ส่งต่อ error เพื่อให้ catch ข้างนอกจัดการ
+            
+            if (patientCheckResponse.data) {
+              // อัปเดตข้อมูลผู้ป่วย
+              await axios.put(`${API_URL}/patients/${patientCheckResponse.data.id}`, {
+                date_of_birth: formattedBirthDate
+              });
+            } else {
+              // สร้างข้อมูลผู้ป่วยใหม่
+              await axios.post(`${API_URL}/patients`, {
+                user_id: id,
+                date_of_birth: formattedBirthDate
+              });
+            }
+          } catch (error) {
+            // ถ้าไม่พบข้อมูลผู้ป่วย ให้สร้างใหม่
+            if (error.response && error.response.status === 404) {
+              const formattedBirthDate = birthDate.toISOString().split('T')[0];
+              await axios.post(`${API_URL}/patients`, {
+                user_id: id,
+                date_of_birth: formattedBirthDate
+              });
+            } else {
+              console.error('Error updating patient data:', error);
+              throw error;
+            }
           }
+        } else {
+          // กรณีไม่ใช่ผู้ป่วย ใช้การอัปเดตแบบเดิม
+          const response = await axios.put(`${API_URL}/users/${id}`, {
+            hospital_id: values.hospital_id,
+            first_name: values.first_name,
+            last_name: values.last_name,
+            phone: values.phone,
+            role_id: values.role_id,
+            is_active: values.is_active,
+            password: values.password || undefined
+          });
         }
+        
+        toast.success('อัปเดตข้อมูลผู้ใช้สำเร็จ');
       } else {
-        // กรณีไม่ใช่ผู้ป่วย ใช้การอัปเดตแบบเดิม
-        response = await axios.put(`${API_URL}/users/${id}`, {
-          hospital_id: values.hospital_id,
-          first_name: values.first_name,
-          last_name: values.last_name,
-          phone: values.phone,
-          role_id: values.role_id,
-          is_active: values.is_active,
-          password: values.password || undefined // ส่งเฉพาะเมื่อมีการกรอก
-        });
+        // *** กรณีสร้างผู้ใช้ใหม่ ***
+        // เปลี่ยนจากการใช้ axios เป็นการใช้ function register จาก AuthContext
+
+        let result;
+        
+        if (isPatient) {
+          // กรณีเป็นผู้ป่วย ใช้ register เหมือนกับใน Register.js
+          const userData = {
+            hospital_id: values.hospital_id,
+            first_name: values.first_name,
+            last_name: values.last_name,
+            phone: values.phone,
+            password: values.password,
+            date_of_birth: birthDate.toISOString().split('T')[0]
+          };
+          
+          result = await register(userData);
+        } else {
+          // กรณีไม่ใช่ผู้ป่วย ใช้ axios แบบเดิม
+          const userData = {
+            hospital_id: values.hospital_id,
+            first_name: values.first_name,
+            last_name: values.last_name,
+            phone: values.phone,
+            role_id: values.role_id,
+            is_active: values.is_active,
+            password: values.password
+          };
+          
+          result = await axios.post(`${API_URL}/users`, userData);
+        }
+        
+        if (result.success) {
+          toast.success('เพิ่มผู้ใช้ใหม่สำเร็จ');
+        } else {
+          throw new Error(result.error || 'ไม่สามารถเพิ่มผู้ใช้ใหม่ได้');
+        }
       }
       
-      toast.success('อัปเดตข้อมูลผู้ใช้สำเร็จ');
-    } else {
-      // สร้างผู้ใช้ใหม่
-      // หมายเหตุ: ส่งข้อมูลในรูปแบบเดียวกับ Register.js (รวมทั้ง date_of_birth)
-      response = await axios.post(`${API_URL}/users`, userData);
-      
-      toast.success('เพิ่มผู้ใช้ใหม่สำเร็จ');
+      // ตรวจสอบว่าเป็นการเพิ่มพยาบาลหรือไม่
+      if (values.role_id === 2 || 
+          (typeof values.role_id === 'string' && 
+          (values.role_id === '2' || roles.find(r => r.id === values.role_id)?.name === 'nurse'))) {
+        navigate('/admin/nurses');
+      } else {
+        navigate('/admin/users');
+      }
+    } catch (error) {
+      console.error('Error saving user:', error);
+      toast.error(`เกิดข้อผิดพลาด: ${error.response?.data?.message || error.message || 'ไม่สามารถบันทึกข้อมูลได้'}`);
+    } finally {
+      setLoading(false);
+      setSubmitting(false);
     }
-    
-    // ตรวจสอบว่าเป็นการเพิ่มพยาบาลหรือไม่
-    if (values.role_id === 2 || 
-        (typeof values.role_id === 'string' && 
-         (values.role_id === '2' || roles.find(r => r.id === values.role_id)?.name === 'nurse'))) {
-      navigate('/admin/nurses');
-    } else {
-      navigate('/admin/users');
-    }
-  } catch (error) {
-    console.error('Error saving user:', error);
-    toast.error(`เกิดข้อผิดพลาด: ${error.response?.data?.message || 'ไม่สามารถบันทึกข้อมูลได้'}`);
-  } finally {
-    setLoading(false);
-    setSubmitting(false);
-  }
-};
+  };
 
   // เมื่อมีการเปลี่ยนบทบาท
   const handleRoleChange = (e, setFieldValue) => {
