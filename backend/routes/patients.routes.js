@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { check, validationResult } = require("express-validator");
-const { auth, authNurseOrAdmin } = require("../middlewares/auth");
+const { auth, authNurseOrAdmin, authAdmin } = require("../middlewares/auth");
 
 // @route   GET api/patients/me
 // @desc    ดึงข้อมูลผู้ป่วยของตัวเอง
