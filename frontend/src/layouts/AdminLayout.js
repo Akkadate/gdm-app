@@ -1,7 +1,7 @@
 // src/layouts/AdminLayout.js
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaHome, FaUserNurse, FaUserInjured, FaUserShield, FaChartLine, FaCog, FaSignOutAlt, FaBars, FaTimes, FaDatabase } from 'react-icons/fa';
+import { FaHome, FaUserNurse, FaUserInjured, FaUserShield, FaChartLine, FaCog, FaSignOutAlt, FaBars, FaTimes, FaDatabase, FaUserPlus } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 
@@ -15,7 +15,7 @@ const AdminLayout = () => {
   const adminMenuItems = [
     { to: '/admin/dashboard', icon: <FaHome />, text: 'แดชบอร์ด' },
     { to: '/admin/nurses', icon: <FaUserNurse />, text: 'จัดการพยาบาล' },
-    { to: '/admin/assign-patients', icon: <AssignIcon />, text: 'มอบหมายผู้ป่วย',  },
+    { to: '/admin/assign-patients', icon: <FaUserPlus />, text: 'มอบหมายผู้ป่วย',  },
     { to: '/admin/patients', icon: <FaUserInjured />, text: 'จัดการผู้ป่วย' },
     { to: '/admin/users', icon: <FaUserShield />, text: 'จัดการผู้ใช้งาน' },
     { to: '/admin/reports', icon: <FaChartLine />, text: 'รายงาน' },
