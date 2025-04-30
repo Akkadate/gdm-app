@@ -46,6 +46,8 @@ import AdminReports from "./pages/admin/Reports";
 import AdminSystem from "./pages/admin/System";
 import AdminSettings from "./pages/admin/Settings";
 import UserForm from "./pages/admin/UserForm"; // เพิ่มไฟล์ UserForm ที่เราสร้างขึ้น
+// Import component
+import AssignPatients from './pages/admin/AssignPatients';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
