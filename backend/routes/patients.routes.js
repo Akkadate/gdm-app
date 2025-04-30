@@ -825,4 +825,221 @@ router.post(
   }
 );
 
+// เพิ่ม endpoint ใหม่ใน routes/patients.routes.js
+
+// @route   POST api/patients/assign-nurse
+// @desc    กำหนดพยาบาลให้ผู้ป่วย (สำหรับแอดมิน)
+// @access  Private/Admin
+router.post(
+  "/assign-nurse",
+  [
+    authAdmin,
+    check("patient_id", "กรุณาระบุรหัสผู้ป่วย").isNumeric(),
+    check("nurse_id", "กรุณาระบุรหัสพยาบาล").isNumeric()
+  ],
+  async (req, res) => {
+    // ตรวจสอบความถูกต้องของข้อมูล
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { patient_id, nurse_id } = req.body;
+
+    try {
+      // ตรวจสอบว่าผู้ป่วยมีอยู่จริงหรือไม่
+      const patientExists = await req.db.query(
+        "SELECT * FROM patients WHERE id = $1",
+        [patient_id]
+      );
+
+      if (patientExists.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลผู้ป่วย" });
+      }
+
+      // ตรวจสอบว่าพยาบาลมีอยู่จริงหรือไม่
+      const nurseExists = await req.db.query(
+        "SELECT u.id, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
+        [nurse_id]
+      );
+
+      if (nurseExists.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลพยาบาล" });
+      }
+
+      // ตรวจสอบว่าผู้ใช้ที่ระบุเป็นพยาบาลจริงหรือไม่
+      if (nurseExists.rows[0].role !== "nurse") {
+        return res.status(400).json({ message: "ผู้ใช้นี้ไม่ใช่พยาบาล" });
+      }
+
+      // อัปเดตข้อมูลพยาบาลที่รับผิดชอบผู้ป่วย
+      const result = await req.db.query(
+        "UPDATE patients SET nurse_id = $1, updated_at = $2 WHERE id = $3 RETURNING *",
+        [nurse_id, new Date(), patient_id]
+      );
+
+      // ดึงข้อมูลเพิ่มเติมของผู้ป่วยและพยาบาล
+      const patientInfo = await req.db.query(
+        `SELECT p.id as patient_id, pu.first_name as patient_first_name, pu.last_name as patient_last_name,
+                nu.id as nurse_id, nu.first_name as nurse_first_name, nu.last_name as nurse_last_name
+         FROM patients p
+         JOIN users pu ON p.user_id = pu.id
+         JOIN users nu ON p.nurse_id = nu.id
+         WHERE p.id = $1`,
+        [patient_id]
+      );
+
+      res.json({
+        success: true,
+        message: "กำหนดพยาบาลให้ผู้ป่วยเรียบร้อยแล้ว",
+        data: patientInfo.rows[0]
+      });
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+    }
+  }
+);
+
+// @route   GET api/patients/unassigned
+// @desc    ดึงรายชื่อผู้ป่วยที่ยังไม่มีพยาบาล
+// @access  Private/Admin
+router.get("/unassigned", authAdmin, async (req, res) => {
+  try {
+    const result = await req.db.query(
+      `SELECT p.id, u.hospital_id, u.first_name, u.last_name, u.phone,
+              p.date_of_birth, p.expected_delivery_date
+       FROM patients p
+       JOIN users u ON p.user_id = u.id
+       WHERE p.nurse_id IS NULL
+       ORDER BY u.first_name, u.last_name`
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+  }
+});
+
+// @route   GET api/patients/by-nurse/:nurse_id
+// @desc    ดึงรายชื่อผู้ป่วยที่ดูแลโดยพยาบาลคนใดคนหนึ่ง
+// @access  Private/Admin
+router.get("/by-nurse/:nurse_id", authAdmin, async (req, res) => {
+  try {
+    // ตรวจสอบว่าพยาบาลมีอยู่จริงหรือไม่
+    const nurseExists = await req.db.query(
+      "SELECT u.id, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1 AND r.name = 'nurse'",
+      [req.params.nurse_id]
+    );
+
+    if (nurseExists.rows.length === 0) {
+      return res.status(404).json({ message: "ไม่พบข้อมูลพยาบาล" });
+    }
+
+    const result = await req.db.query(
+      `SELECT p.id, u.hospital_id, u.first_name, u.last_name, u.phone,
+              p.date_of_birth, p.expected_delivery_date
+       FROM patients p
+       JOIN users u ON p.user_id = u.id
+       WHERE p.nurse_id = $1
+       ORDER BY u.first_name, u.last_name`,
+      [req.params.nurse_id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+  }
+});
+
+// @route   PUT api/patients/:id/remove-nurse
+// @desc    ยกเลิกการกำหนดพยาบาลให้ผู้ป่วย
+// @access  Private/Admin
+router.put("/:id/remove-nurse", authAdmin, async (req, res) => {
+  try {
+    // ตรวจสอบว่าผู้ป่วยมีอยู่จริงหรือไม่
+    const patientExists = await req.db.query(
+      "SELECT * FROM patients WHERE id = $1",
+      [req.params.id]
+    );
+
+    if (patientExists.rows.length === 0) {
+      return res.status(404).json({ message: "ไม่พบข้อมูลผู้ป่วย" });
+    }
+
+    // อัปเดตข้อมูลพยาบาลที่รับผิดชอบผู้ป่วยเป็น null
+    const result = await req.db.query(
+      "UPDATE patients SET nurse_id = NULL, updated_at = $1 WHERE id = $2 RETURNING *",
+      [new Date(), req.params.id]
+    );
+
+    res.json({
+      success: true,
+      message: "ยกเลิกการกำหนดพยาบาลให้ผู้ป่วยเรียบร้อยแล้ว",
+      data: result.rows[0]
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+  }
+});
+
+// @route   POST api/patients/batch-assign
+// @desc    กำหนดพยาบาลให้ผู้ป่วยหลายคนพร้อมกัน
+// @access  Private/Admin
+router.post(
+  "/batch-assign",
+  [
+    authAdmin,
+    check("nurse_id", "กรุณาระบุรหัสพยาบาล").isNumeric(),
+    check("patient_ids", "กรุณาระบุรายการรหัสผู้ป่วย").isArray().notEmpty()
+  ],
+  async (req, res) => {
+    // ตรวจสอบความถูกต้องของข้อมูล
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { nurse_id, patient_ids } = req.body;
+
+    try {
+      // ตรวจสอบว่าพยาบาลมีอยู่จริงหรือไม่
+      const nurseExists = await req.db.query(
+        "SELECT u.id, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1",
+        [nurse_id]
+      );
+
+      if (nurseExists.rows.length === 0) {
+        return res.status(404).json({ message: "ไม่พบข้อมูลพยาบาล" });
+      }
+
+      // ตรวจสอบว่าผู้ใช้ที่ระบุเป็นพยาบาลจริงหรือไม่
+      if (nurseExists.rows[0].role !== "nurse") {
+        return res.status(400).json({ message: "ผู้ใช้นี้ไม่ใช่พยาบาล" });
+      }
+
+      // อัปเดตข้อมูลพยาบาลที่รับผิดชอบผู้ป่วยทั้งหมด
+      const result = await req.db.query(
+        `UPDATE patients 
+         SET nurse_id = $1, updated_at = $2 
+         WHERE id = ANY($3::int[]) 
+         RETURNING id`,
+        [nurse_id, new Date(), patient_ids]
+      );
+
+      res.json({
+        success: true,
+        message: `กำหนดพยาบาลให้ผู้ป่วยจำนวน ${result.rows.length} คนเรียบร้อยแล้ว`,
+        updated_count: result.rows.length,
+        updated_ids: result.rows.map(row => row.id)
+      });
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ message: "เกิดข้อผิดพลาดบนเซิร์ฟเวอร์" });
+    }
+  }
+);
 module.exports = router;
