@@ -15,11 +15,13 @@ const AdminLayout = () => {
   const adminMenuItems = [
     { to: '/admin/dashboard', icon: <FaHome />, text: 'แดชบอร์ด' },
     { to: '/admin/nurses', icon: <FaUserNurse />, text: 'จัดการพยาบาล' },
+    { to: '/admin/assign-patients', icon: <AssignIcon />, text: 'มอบหมายผู้ป่วย',  },
     { to: '/admin/patients', icon: <FaUserInjured />, text: 'จัดการผู้ป่วย' },
     { to: '/admin/users', icon: <FaUserShield />, text: 'จัดการผู้ใช้งาน' },
     { to: '/admin/reports', icon: <FaChartLine />, text: 'รายงาน' },
     { to: '/admin/system', icon: <FaDatabase />, text: 'จัดการระบบ' },
     { to: '/admin/settings', icon: <FaCog />, text: 'ตั้งค่า' },
+  
   ];
 
   // ฟังก์ชันจัดการการออกจากระบบ
