@@ -2,14 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { toast } from 'react-toastify';
 
-// Components
-import { Card, CardHeader, CardBody, CardFooter } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Checkbox } from '../../components/ui/Checkbox';
-import { Select } from '../../components/ui/Select';
-import { Spinner } from '../../components/ui/Spinner';
+// ตรวจสอบว่ามี toast ในโปรเจคหรือไม่ ถ้าไม่มีให้ใช้ alert แทน
+const showToast = (message, type = 'success') => {
+  if (typeof window.toast !== 'undefined') {
+    window.toast[type](message);
+  } else {
+    alert(message);
+  }
+};
 
 const AssignPatients = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const AssignPatients = () => {
       setNurses(response.data);
     } catch (error) {
       console.error('Error fetching nurses:', error);
-      toast.error('ไม่สามารถดึงข้อมูลพยาบาลได้');
+      showToast('ไม่สามารถดึงข้อมูลพยาบาลได้', 'error');
     }
   };
 
@@ -41,7 +42,7 @@ const AssignPatients = () => {
       setPatients(response.data);
     } catch (error) {
       console.error('Error fetching unassigned patients:', error);
-      toast.error('ไม่สามารถดึงข้อมูลผู้ป่วยได้');
+      showToast('ไม่สามารถดึงข้อมูลผู้ป่วยได้', 'error');
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ const AssignPatients = () => {
       setPatients(response.data);
     } catch (error) {
       console.error('Error fetching patients by nurse:', error);
-      toast.error('ไม่สามารถดึงข้อมูลผู้ป่วยได้');
+      showToast('ไม่สามารถดึงข้อมูลผู้ป่วยได้', 'error');
     } finally {
       setLoading(false);
     }
@@ -110,7 +111,7 @@ const AssignPatients = () => {
   // กำหนดพยาบาลให้ผู้ป่วยที่เลือก
   const assignPatientsToNurse = async () => {
     if (!selectedNurse || selectedPatients.length === 0) {
-      toast.warning('กรุณาเลือกพยาบาลและผู้ป่วยอย่างน้อย 1 คน');
+      showToast('กรุณาเลือกพยาบาลและผู้ป่วยอย่างน้อย 1 คน', 'warning');
       return;
     }
 
@@ -121,7 +122,7 @@ const AssignPatients = () => {
         patient_ids: selectedPatients
       });
 
-      toast.success(`กำหนดพยาบาลให้ผู้ป่วยจำนวน ${selectedPatients.length} คนเรียบร้อยแล้ว`);
+      showToast(`กำหนดพยาบาลให้ผู้ป่วยจำนวน ${selectedPatients.length} คนเรียบร้อยแล้ว`, 'success');
       
       // รีเฟรชข้อมูล
       if (activeTab === 'unassigned') {
@@ -133,7 +134,7 @@ const AssignPatients = () => {
       setSelectedPatients([]);
     } catch (error) {
       console.error('Error assigning patients:', error);
-      toast.error('ไม่สามารถกำหนดพยาบาลให้ผู้ป่วยได้');
+      showToast('ไม่สามารถกำหนดพยาบาลให้ผู้ป่วยได้', 'error');
     } finally {
       setLoading(false);
     }
@@ -142,7 +143,7 @@ const AssignPatients = () => {
   // ยกเลิกการกำหนดพยาบาลให้ผู้ป่วยที่เลือก
   const removeNurseFromPatients = async () => {
     if (selectedPatients.length === 0) {
-      toast.warning('กรุณาเลือกผู้ป่วยอย่างน้อย 1 คน');
+      showToast('กรุณาเลือกผู้ป่วยอย่างน้อย 1 คน', 'warning');
       return;
     }
 
@@ -154,7 +155,7 @@ const AssignPatients = () => {
         await axios.put(`/api/patients/${patientId}/remove-nurse`);
       }
 
-      toast.success(`ยกเลิกการกำหนดพยาบาลให้ผู้ป่วยจำนวน ${selectedPatients.length} คนเรียบร้อยแล้ว`);
+      showToast(`ยกเลิกการกำหนดพยาบาลให้ผู้ป่วยจำนวน ${selectedPatients.length} คนเรียบร้อยแล้ว`, 'success');
       
       // รีเฟรชข้อมูล
       if (activeTab === 'unassigned') {
@@ -166,40 +167,56 @@ const AssignPatients = () => {
       setSelectedPatients([]);
     } catch (error) {
       console.error('Error removing nurse assignment:', error);
-      toast.error('ไม่สามารถยกเลิกการกำหนดพยาบาลให้ผู้ป่วยได้');
+      showToast('ไม่สามารถยกเลิกการกำหนดพยาบาลให้ผู้ป่วยได้', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">การมอบหมายผู้ป่วยให้พยาบาล</h1>
+    <div className="container mx-auto px-4 py-8" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>การมอบหมายผู้ป่วยให้พยาบาล</h1>
       
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="flex border-b">
+      <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', overflow: 'hidden', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
           <button
-            className={`px-4 py-2 font-medium ${activeTab === 'unassigned' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+            style={{ 
+              padding: '0.5rem 1rem', 
+              fontWeight: '500',
+              backgroundColor: activeTab === 'unassigned' ? '#3b82f6' : '#f3f4f6',
+              color: activeTab === 'unassigned' ? 'white' : 'inherit'
+            }}
             onClick={() => handleTabChange('unassigned')}
           >
             ผู้ป่วยที่ยังไม่มีพยาบาล
           </button>
           <button
-            className={`px-4 py-2 font-medium ${activeTab === 'byNurse' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+            style={{ 
+              padding: '0.5rem 1rem', 
+              fontWeight: '500',
+              backgroundColor: activeTab === 'byNurse' ? '#3b82f6' : '#f3f4f6',
+              color: activeTab === 'byNurse' ? 'white' : 'inherit'
+            }}
             onClick={() => handleTabChange('byNurse')}
           >
             ผู้ป่วยตามพยาบาล
           </button>
         </div>
         
-        <div className="p-4">
-          <div className="flex flex-wrap items-center mb-4 gap-4">
-            <div className="w-full md:w-1/3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div style={{ padding: '1rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
+            <div style={{ width: '100%', maxWidth: '300px' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
                 เลือกพยาบาล
               </label>
               <select
-                className="w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
+                style={{ 
+                  width: '100%', 
+                  padding: '0.5rem', 
+                  borderRadius: '0.375rem', 
+                  border: '1px solid #d1d5db',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+                }}
                 value={selectedNurse}
                 onChange={(e) => setSelectedNurse(e.target.value)}
               >
@@ -212,39 +229,57 @@ const AssignPatients = () => {
               </select>
             </div>
             
-            <div className="w-full md:w-auto flex gap-2 mt-4 md:mt-auto">
+            <div style={{ width: '100%', display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
               <button
-                className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md shadow"
+                style={{
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.375rem',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                  cursor: !selectedNurse || selectedPatients.length === 0 || loading ? 'not-allowed' : 'pointer',
+                  opacity: !selectedNurse || selectedPatients.length === 0 || loading ? 0.7 : 1
+                }}
                 onClick={assignPatientsToNurse}
                 disabled={!selectedNurse || selectedPatients.length === 0 || loading}
               >
-                {loading ? <span className="spinner-border spinner-border-sm mr-2"></span> : null}
-                กำหนดพยาบาลให้ผู้ป่วยที่เลือก
+                {loading ? 'กำลังดำเนินการ...' : 'กำหนดพยาบาลให้ผู้ป่วยที่เลือก'}
               </button>
               
               {activeTab === 'byNurse' && (
                 <button
-                  className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md shadow"
+                  style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.375rem',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    cursor: selectedPatients.length === 0 || loading ? 'not-allowed' : 'pointer',
+                    opacity: selectedPatients.length === 0 || loading ? 0.7 : 1
+                  }}
                   onClick={removeNurseFromPatients}
                   disabled={selectedPatients.length === 0 || loading}
                 >
-                  {loading ? <span className="spinner-border spinner-border-sm mr-2"></span> : null}
-                  ยกเลิกการมอบหมาย
+                  {loading ? 'กำลังดำเนินการ...' : 'ยกเลิกการมอบหมาย'}
                 </button>
               )}
             </div>
           </div>
           
           {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="spinner-border text-primary" role="status">
-                <span className="sr-only">กำลังโหลด...</span>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
+              <div style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', width: '30px', height: '30px', animation: 'spin 2s linear infinite' }}></div>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
             </div>
           ) : (
             <>
               {patients.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
                   {activeTab === 'unassigned' 
                     ? 'ไม่มีผู้ป่วยที่ยังไม่ได้รับการมอบหมาย' 
                     : selectedNurse 
@@ -253,81 +288,85 @@ const AssignPatients = () => {
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        style={{ height: '1rem', width: '1rem', borderRadius: '0.25rem', marginRight: '0.5rem' }}
                         checked={selectedPatients.length === patients.length}
                         onChange={handleSelectAll}
                       />
-                      <label className="ml-2 text-sm font-medium text-gray-700">
+                      <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
                         เลือกทั้งหมด ({patients.length})
                       </label>
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                       เลือกแล้ว {selectedPatients.length} คน
                     </div>
                   </div>
                   
-                  <div className="border rounded-md overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                  <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', overflow: 'hidden' }}>
+                    <table style={{ minWidth: '100%', borderCollapse: 'collapse' }}>
+                      <thead style={{ backgroundColor: '#f9fafb' }}>
                         <tr>
-                          <th scope="col" className="w-12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th style={{ width: '3rem', padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             รหัสผู้ป่วย
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             ชื่อ-นามสกุล
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             วันเกิด
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             กำหนดคลอด
                           </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             เบอร์โทร
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody style={{ backgroundColor: 'white', divide: 'y' }}>
                         {patients.map((patient) => (
                           <tr 
                             key={patient.id}
-                            className={selectedPatients.includes(patient.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                            style={{ 
+                              backgroundColor: selectedPatients.includes(patient.id) ? '#eff6ff' : 'white',
+                              borderBottom: '1px solid #e5e7eb'
+                            }}
+                            onClick={() => handlePatientSelection(patient.id)}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                style={{ height: '1rem', width: '1rem', borderRadius: '0.25rem' }}
                                 checked={selectedPatients.includes(patient.id)}
-                                onChange={() => handlePatientSelection(patient.id)}
+                                onChange={() => {}} // การเปลี่ยนแปลงจะถูกจัดการโดยการคลิกที่แถว
                               />
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{patient.hospital_id}</div>
+                            <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>{patient.hospital_id}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{patient.first_name} {patient.last_name}</div>
+                            <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '0.875rem', color: '#111827' }}>{patient.first_name} {patient.last_name}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {new Date(patient.date_of_birth).toLocaleDateString('th-TH')}
+                            <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                {patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('th-TH') : '-'}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
+                            <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                                 {patient.expected_delivery_date 
                                   ? new Date(patient.expected_delivery_date).toLocaleDateString('th-TH') 
                                   : '-'}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">{patient.phone}</div>
+                            <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{patient.phone}</div>
                             </td>
                           </tr>
                         ))}
