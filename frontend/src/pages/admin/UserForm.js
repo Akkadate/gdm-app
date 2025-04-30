@@ -142,6 +142,7 @@ const UserForm = ({ view = false }) => {
   // บันทึกข้อมูลผู้ใช้
   // ส่วนของฟังก์ชัน handleSubmit ที่ปรับปรุงแล้ว
 // ส่วนของฟังก์ชัน handleSubmit ที่ปรับปรุงแล้ว
+// ส่วนของฟังก์ชัน handleSubmit ที่ปรับปรุงแล้ว
 const handleSubmit = async (values, { setSubmitting }) => {
     // ตรวจสอบว่าเลือกบทบาทเป็นผู้ป่วยหรือไม่
     const isPatient = values.role_id === 3 || values.role_id === '3';
@@ -223,21 +224,28 @@ const handleSubmit = async (values, { setSubmitting }) => {
         // *** กรณีสร้างผู้ใช้ใหม่ ***
         
         if (isPatient) {
-          // กรณีเป็นผู้ป่วย ใช้ function register จาก AuthContext
+          // กรณีเป็นผู้ป่วย ใช้ axios.post แทน register เพื่อไม่ให้ logout
           const userData = {
             hospital_id: values.hospital_id,
             first_name: values.first_name,
             last_name: values.last_name,
             phone: values.phone,
-            password: values.password,
-            date_of_birth: birthDate.toISOString().split('T')[0]
+            role_id: 3, // กำหนดค่าเป็น 3 เพื่อให้เป็นผู้ป่วย
+            is_active: values.is_active,
+            password: values.password
           };
           
-          const result = await register(userData);
+          // สร้างผู้ใช้ใหม่ในตาราง users
+          const userResponse = await axios.post(`${API_URL}/users`, userData);
           
-          if (!result || result.error) {
-            throw new Error(result?.error || 'ไม่สามารถเพิ่มผู้ป่วยใหม่ได้');
-          }
+          // ดึง user id ที่สร้างใหม่
+          const newUserId = userResponse.data.id;
+          
+          // สร้างข้อมูลในตาราง patients
+          await axios.post(`${API_URL}/patients`, {
+            user_id: newUserId,
+            date_of_birth: birthDate.toISOString().split('T')[0]
+          });
         } else {
           // กรณีไม่ใช่ผู้ป่วย ใช้ axios
           const userData = {
