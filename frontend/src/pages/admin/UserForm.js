@@ -141,6 +141,7 @@ const UserForm = ({ view = false }) => {
 
   // บันทึกข้อมูลผู้ใช้
   // ส่วนของฟังก์ชัน handleSubmit ที่ปรับปรุงแล้ว
+// ส่วนของฟังก์ชัน handleSubmit ที่ปรับปรุงแล้ว
 const handleSubmit = async (values, { setSubmitting }) => {
     // ตรวจสอบว่าเลือกบทบาทเป็นผู้ป่วยหรือไม่
     const isPatient = values.role_id === 3 || values.role_id === '3';
@@ -220,12 +221,9 @@ const handleSubmit = async (values, { setSubmitting }) => {
         toast.success('อัปเดตข้อมูลผู้ใช้สำเร็จ');
       } else {
         // *** กรณีสร้างผู้ใช้ใหม่ ***
-        // เปลี่ยนจากการใช้ axios เป็นการใช้ function register จาก AuthContext
-
-        let result;
         
         if (isPatient) {
-          // กรณีเป็นผู้ป่วย ใช้ register เหมือนกับใน Register.js
+          // กรณีเป็นผู้ป่วย ใช้ function register จาก AuthContext
           const userData = {
             hospital_id: values.hospital_id,
             first_name: values.first_name,
@@ -235,9 +233,13 @@ const handleSubmit = async (values, { setSubmitting }) => {
             date_of_birth: birthDate.toISOString().split('T')[0]
           };
           
-          result = await register(userData);
+          const result = await register(userData);
+          
+          if (!result || result.error) {
+            throw new Error(result?.error || 'ไม่สามารถเพิ่มผู้ป่วยใหม่ได้');
+          }
         } else {
-          // กรณีไม่ใช่ผู้ป่วย ใช้ axios แบบเดิม
+          // กรณีไม่ใช่ผู้ป่วย ใช้ axios
           const userData = {
             hospital_id: values.hospital_id,
             first_name: values.first_name,
@@ -248,14 +250,11 @@ const handleSubmit = async (values, { setSubmitting }) => {
             password: values.password
           };
           
-          result = await axios.post(`${API_URL}/users`, userData);
+          // ส่งข้อมูลไปยัง API โดยตรง
+          await axios.post(`${API_URL}/users`, userData);
         }
         
-        if (result.success) {
-          toast.success('เพิ่มผู้ใช้ใหม่สำเร็จ');
-        } else {
-          throw new Error(result.error || 'ไม่สามารถเพิ่มผู้ใช้ใหม่ได้');
-        }
+        toast.success('เพิ่มผู้ใช้ใหม่สำเร็จ');
       }
       
       // ตรวจสอบว่าเป็นการเพิ่มพยาบาลหรือไม่
@@ -275,7 +274,7 @@ const handleSubmit = async (values, { setSubmitting }) => {
     }
   };
 
-  // เมื่อมีการเปลี่ยนบทบาท
+  // เมื่อมีการเปลี่ยนบทบาท --------------------
   const handleRoleChange = (e, setFieldValue) => {
     const roleId = e.target.value;
     setFieldValue('role_id', roleId);
